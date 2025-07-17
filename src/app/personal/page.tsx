@@ -29,7 +29,7 @@ export default function PersonalPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get<Usuario[]>('http://localhost:5170/api/Usuarios');
+      const response = await axios.get<Usuario[]>('http://localhost:5170/api/Usuarios?EstaEliminado=false');
       setUsers(response.data);
     } catch (err: any) {
       setError(err.message);
@@ -38,12 +38,12 @@ export default function PersonalPage() {
     }
   };
 
-  const handleDelete = async (cedula: string) => {
+  const handleDelete = async (idRol: number) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
       return;
     }
     try {
-      await axios.delete(`http://localhost:5170/api/Usuarios/${cedula}`);
+      await axios.delete(`http://localhost:5170/api/Usuarios/${idRol}`);
       alert('Usuario eliminado exitosamente.');
       fetchUsers(); // Recargar la lista
     } catch (err: any) {
@@ -154,7 +154,7 @@ export default function PersonalPage() {
                         Editar
                       </button>
                       <button
-                        onClick={() => handleDelete(user.cedula)}
+                        onClick={() => handleDelete(user.idRol)}
                         className="text-red-600 hover:text-red-900"
                         disabled={currentUserRoleId !== 1}
                       >

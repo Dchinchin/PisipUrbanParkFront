@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Mantenimiento } from '../interfaces/Mantenimiento';
+import {Bitacora, Mantenimiento} from '../interfaces/Mantenimiento';
 import { Usuario } from '../interfaces/Usuario';
 import { Parqueadero } from '../interfaces/Parqueadero';
 import { TipoMantenimiento } from '../interfaces/TipoMantenimiento';
 import MaintenanceModal from '../components/MaintenanceModal';
+import BitacoraModal from '../components/BitacoraModal';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 
@@ -92,27 +93,51 @@ const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, sele
 
 // Componente Filters
 interface FiltersProps {
-  onFilterChange: (filters: { userId: string; month: number }) => void;
-  currentFilters: { userId: string; month: number };
+  onFilterChange: (filters: { startDate: string; endDate: string; userId: string; month: number }) => void;
+  currentFilters: { startDate: string; endDate: string; userId: string; month: number };
   users: Usuario[];
 }
 
 const Filters: React.FC<FiltersProps> = ({ onFilterChange, currentFilters, users }) => {
+  const [startDate, setStartDate] = useState(currentFilters.startDate);
+  const [endDate, setEndDate] = useState(currentFilters.endDate);
   const [userId, setUserId] = useState(currentFilters.userId);
   const [month, setMonth] = useState(currentFilters.month);
 
   useEffect(() => {
-    onFilterChange({ userId, month });
-  }, [userId, month, onFilterChange]);
+    onFilterChange({ startDate, endDate, userId, month });
+  }, [startDate, endDate, userId, month, onFilterChange]);
 
   const resetFilters = () => {
+    setStartDate('');
+    setEndDate('');
     setUserId('');
     setMonth(new Date().getMonth());
   };
 
   return (
       <div className="bg-white p-4 rounded-lg shadow-lg mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
+            <input
+                type="date"
+                id="startDate"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Fecha Hasta</label>
+            <input
+                type="date"
+                id="endDate"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
           <div>
             <label htmlFor="userId" className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
             <select
@@ -176,10 +201,14 @@ export default function MantenimientosPage() {
     tiposMantenimiento: '',
   });
   const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
     userId: '',
     month: new Date().getMonth(),
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBitacoraModalOpen, setIsBitacoraModalOpen] = useState(false);
+  const [selectedMantenimientoId, setSelectedMantenimientoId] = useState<number | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRoleId, setCurrentUserRoleId] = useState<number | null>(null);
   const router = useRouter();
@@ -301,12 +330,42 @@ export default function MantenimientosPage() {
   // Filtrar mantenimientos
   const filteredMantenimientos = mantenimientos.filter(mantenimiento => {
     const maintenanceDate = new Date(mantenimiento.fechaInicio);
+    const matchesStartDate = filters.startDate ? maintenanceDate >= new Date(filters.startDate) : true;
+    const matchesEndDate = filters.endDate ? maintenanceDate <= new Date(filters.endDate) : true;
     const matchesUserId = (currentUserRoleId !== 1 && currentUserId) ?
         mantenimiento.idUsuario === parseInt(currentUserId) : (filters.userId ? users.find(user => user.cedula === filters.userId)?.idRol === mantenimiento.idUsuario : true);
     const matchesMonth = maintenanceDate.getMonth() === filters.month;
 
-    return matchesUserId && matchesMonth;
+    return matchesStartDate && matchesEndDate && matchesUserId && matchesMonth;
   });
+
+  const handleAddBitacora = async (idMantenimiento: number, newBitacora: Omit<Bitacora, 'idBitacora' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idMantenimiento'>, imageFile: File | null) => {
+    try {
+      const formData = new FormData();
+      formData.append('idMantenimiento', idMantenimiento.toString());
+      formData.append('descripcion', newBitacora.descripcion);
+      if (imageFile) {
+        formData.append('imagen', imageFile);
+      }
+
+      await api.post('/Bitacora', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      // Update maintenance status to 'Completado'
+      await api.put(`/Mantenimiento/estado/${idMantenimiento}`, { estado: 'Completado' });
+
+      // Refresh mantenimientos list
+      const response = await api.get<Mantenimiento[]>(`/Mantenimiento${currentUserRoleId !== 1 ? `/usuario/${currentUserId}` : ''}`);
+      setMantenimientos(response.data);
+      setIsBitacoraModalOpen(false);
+    } catch (err) {
+      console.error('Error al adjuntar bitácora o actualizar mantenimiento:', err);
+      alert('Error al adjuntar la bitácora o actualizar el mantenimiento. Por favor intente nuevamente.');
+    }
+  };
 
   if (loading.mantenimientos || loading.users || loading.parqueaderos || loading.tiposMantenimiento) {
     return (
@@ -346,22 +405,22 @@ export default function MantenimientosPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <h1 className="text-2xl md:text-3xl font-extrabold text-gray-800">Gestión de Mantenimientos</h1>
           {currentUserRoleId === 1 && (
-            <button
-                onClick={() => setIsModalOpen(true)}
-                className="bg-orange-500 mt-4 md:mt-0 px-4 py-2 bg-primary hover:bg-primary/80 text-white font-medium rounded-lg shadow-md transition-colors duration-300"
-                disabled={!!error.users || !!error.parqueaderos || !!error.tiposMantenimiento}
-            >
-              + Nuevo Mantenimiento
-            </button>
+              <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-orange-500 mt-4 md:mt-0 px-4 py-2 bg-primary hover:bg-primary/80 text-white font-medium rounded-lg shadow-md transition-colors duration-300"
+                  disabled={!!error.users || !!error.parqueaderos || !!error.tiposMantenimiento}
+              >
+                + Nuevo Mantenimiento
+              </button>
           )}
         </div>
 
         {currentUserRoleId === 1 && (
-          <Filters
-              onFilterChange={setFilters}
-              currentFilters={filters}
-              users={users}
-          />
+            <Filters
+                onFilterChange={setFilters}
+                currentFilters={filters}
+                users={users}
+            />
         )}
 
         <div className="bg-white p-4 rounded-lg shadow-lg mb-6">
@@ -405,43 +464,115 @@ export default function MantenimientosPage() {
           )}
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow-lg">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Detalle de Mantenimientos</h2>
-            <div className="overflow-x-auto">
-                <table className="min-w-full bg-white">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="py-2 px-4 border-b">ID</th>
-                            <th className="py-2 px-4 border-b">Usuario</th>
-                            <th className="py-2 px-4 border-b">Parqueadero</th>
-                            <th className="py-2 px-4 border-b">Tipo</th>
-                            <th className="py-2 px-4 border-b">Fecha Inicio</th>
-                            <th className="py-2 px-4 border-b">Fecha Fin</th>
-                            <th className="py-2 px-4 border-b">Estado</th>
-                            <th className="py-2 px-4 border-b">Bitácoras</th>
-                            <th className="py-2 px-4 border-b">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredMantenimientos.map(m => (
-                            <tr key={m.idMantenimiento} className="hover:bg-gray-50">
-                                <td className="py-2 px-4 border-b">{m.idMantenimiento}</td>
-                                <td className="py-2 px-4 border-b">{users.find(u => u.idRol === m.idUsuario)?.nombre}</td>
-                                <td className="py-2 px-4 border-b">{parqueaderos.find(p => p.idParqueadero === m.idParqueadero)?.nombre}</td>
-                                <td className="py-2 px-4 border-b">{tiposMantenimiento.find(t => t.idTipo === m.idTipoMantenimiento)?.nombre}</td>
-                                <td className="py-2 px-4 border-b">{new Date(m.fechaInicio).toLocaleString()}</td>
-                                <td className="py-2 px-4 border-b">{new Date(m.fechaFin).toLocaleString()}</td>
-                                <td className="py-2 px-4 border-b">{m.estado}</td>
-                                <td className="py-2 px-4 border-b">{m.bitacoras.length}</td>
-                                <td className="py-2 px-4 border-b">
-                                    <button className="bg-secondary text-white px-2 py-1 rounded mr-2">Editar</button>
-                                    <button className="bg-green-500 text-white px-2 py-1 rounded">Adjuntar Bitácora</button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800">Detalle de Mantenimientos</h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ID
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Usuario
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Parqueadero
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipo
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha Inicio
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha Fin
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+              {filteredMantenimientos.length > 0 ? (
+                  filteredMantenimientos.map(m => (
+                      <tr key={m.idMantenimiento} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          #{m.idMantenimiento}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {users.find(u => u.idRol === m.idUsuario)?.nombre || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {parqueaderos.find(p => p.idParqueadero === m.idParqueadero)?.nombre || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {tiposMantenimiento.find(t => t.idTipo === m.idTipoMantenimiento)?.nombre || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(m.fechaInicio).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {m.fechaFin ?
+                              new Date(m.fechaFin).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            m.estado === 'Completado' ? 'bg-green-100 text-green-800' :
+                                m.estado === 'Pendiente' ? 'bg-orange-100 text-orange-800' :
+                                    'bg-red-100 text-red-800'
+                        }`}>
+                          {m.estado}
+                        </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                                className="px-3 py-1 bg-secondary text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200"
+                            >
+                              Editar
+                            </button>
+                            <button
+                                className="px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition-colors duration-200"
+                                onClick={() => {
+                                  setSelectedMantenimientoId(m.idMantenimiento);
+                                  setIsBitacoraModalOpen(true);
+                                }}
+                            >
+                              Bitácora
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                  ))
+              ) : (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                      No se encontraron mantenimientos con los filtros aplicados
+                    </td>
+                  </tr>
+              )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <MaintenanceModal
@@ -452,6 +583,15 @@ export default function MantenimientosPage() {
             parqueaderos={parqueaderos}
             tiposMantenimiento={tiposMantenimiento}
         />
+
+        {selectedMantenimientoId && (
+            <BitacoraModal
+                isOpen={isBitacoraModalOpen}
+                onClose={() => setIsBitacoraModalOpen(false)}
+                idMantenimiento={selectedMantenimientoId}
+                onSubmit={handleAddBitacora}
+            />
+        )}
       </div>
   );
 }
