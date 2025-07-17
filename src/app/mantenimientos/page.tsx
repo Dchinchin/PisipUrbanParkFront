@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Mantenimiento } from '../interfaces/Mantenimiento';
 import { Usuario } from '../interfaces/Usuario';
+import { Parqueadero } from '../interfaces/Parqueadero';
+import { TipoMantenimiento } from '../interfaces/TipoMantenimiento';
 import MaintenanceModal from '../components/MaintenanceModal';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
@@ -65,9 +67,9 @@ const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, sele
           return (
               <div
                   key={day}
-                  className={`border border-gray-200 p-1 h-16 md:h-24 flex flex-col ${isToday ? 'bg-blue-50' : ''}`}
+                  className={`border border-gray-200 p-1 h-16 md:h-24 flex flex-col ${isToday ? 'bg-secondary/10' : ''}`}
               >
-            <span className={`font-bold text-xs md:text-sm ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
+            <span className={`font-bold text-xs md:text-sm ${isToday ? 'text-secondary' : 'text-gray-700'}`}>
               {day}
             </span>
                 <div className="flex-grow overflow-y-auto">
@@ -90,58 +92,34 @@ const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, sele
 
 // Componente Filters
 interface FiltersProps {
-  onFilterChange: (filters: { startDate: string; endDate: string; userId: string; month: number }) => void;
-  currentFilters: { startDate: string; endDate: string; userId: string; month: number };
+  onFilterChange: (filters: { userId: string; month: number }) => void;
+  currentFilters: { userId: string; month: number };
   users: Usuario[];
 }
 
 const Filters: React.FC<FiltersProps> = ({ onFilterChange, currentFilters, users }) => {
-  const [startDate, setStartDate] = useState(currentFilters.startDate);
-  const [endDate, setEndDate] = useState(currentFilters.endDate);
   const [userId, setUserId] = useState(currentFilters.userId);
   const [month, setMonth] = useState(currentFilters.month);
 
   useEffect(() => {
-    onFilterChange({ startDate, endDate, userId, month });
-  }, [startDate, endDate, userId, month, onFilterChange]);
+    onFilterChange({ userId, month });
+  }, [userId, month, onFilterChange]);
 
   const resetFilters = () => {
-    setStartDate('');
-    setEndDate('');
     setUserId('');
     setMonth(new Date().getMonth());
   };
 
   return (
       <div className="bg-white p-4 rounded-lg shadow-lg mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
-            <input
-                type="date"
-                id="startDate"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Fecha Hasta</label>
-            <input
-                type="date"
-                id="endDate"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
           <div>
             <label htmlFor="userId" className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
             <select
                 id="userId"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="">Todos</option>
               {users.map(user => (
@@ -157,7 +135,7 @@ const Filters: React.FC<FiltersProps> = ({ onFilterChange, currentFilters, users
                 id="month"
                 value={month}
                 onChange={(e) => setMonth(parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               {Array.from({ length: 12 }, (_, i) => (
                   <option key={i} value={i}>
@@ -170,7 +148,7 @@ const Filters: React.FC<FiltersProps> = ({ onFilterChange, currentFilters, users
         <div className="flex justify-end mt-4">
           <button
               onClick={resetFilters}
-              className="px-4 py-2 text-sm font-medium text-orange-600 hover:text-orange-800 hover:underline"
+              className="px-4 py-2 text-sm font-medium text-primary hover:text-primary/80 hover:underline"
           >
             Limpiar filtros
           </button>
@@ -183,17 +161,21 @@ const Filters: React.FC<FiltersProps> = ({ onFilterChange, currentFilters, users
 export default function MantenimientosPage() {
   const [mantenimientos, setMantenimientos] = useState<Mantenimiento[]>([]);
   const [users, setUsers] = useState<Usuario[]>([]);
+  const [parqueaderos, setParqueaderos] = useState<Parqueadero[]>([]);
+  const [tiposMantenimiento, setTiposMantenimiento] = useState<TipoMantenimiento[]>([]);
   const [loading, setLoading] = useState({
     mantenimientos: true,
-    users: true
+    users: true,
+    parqueaderos: true,
+    tiposMantenimiento: true,
   });
   const [error, setError] = useState({
     mantenimientos: '',
-    users: ''
+    users: '',
+    parqueaderos: '',
+    tiposMantenimiento: '',
   });
   const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: '',
     userId: '',
     month: new Date().getMonth(),
   });
@@ -270,8 +252,42 @@ export default function MantenimientosPage() {
     getUsers();
   }, [currentUserRoleId]);
 
+  // Obtener Parqueaderos
+  useEffect(() => {
+    const getParqueaderos = async () => {
+      try {
+        const response = await api.get('/Parqueadero');
+        setParqueaderos(response.data);
+        setError(prev => ({ ...prev, parqueaderos: '' }));
+      } catch (err) {
+        console.error('Error al obtener parqueaderos:', err);
+        setError(prev => ({ ...prev, parqueaderos: 'Error al cargar parqueaderos' }));
+      } finally {
+        setLoading(prev => ({ ...prev, parqueaderos: false }));
+      }
+    };
+    getParqueaderos();
+  }, []);
+
+  // Obtener Tipos de Mantenimiento
+  useEffect(() => {
+    const getTiposMantenimiento = async () => {
+      try {
+        const response = await api.get('/TipoMantenimiento');
+        setTiposMantenimiento(response.data);
+        setError(prev => ({ ...prev, tiposMantenimiento: '' }));
+      } catch (err) {
+        console.error('Error al obtener tipos de mantenimiento:', err);
+        setError(prev => ({ ...prev, tiposMantenimiento: 'Error al cargar tipos de mantenimiento' }));
+      } finally {
+        setLoading(prev => ({ ...prev, tiposMantenimiento: false }));
+      }
+    };
+    getTiposMantenimiento();
+  }, []);
+
   // Crear nuevo mantenimiento
-  const handleAddMaintenance = async (newMaintenance: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado'>) => {
+  const handleAddMaintenance = async (newMaintenance: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>) => {
     try {
       const response = await api.post('/Mantenimiento', newMaintenance);
       setMantenimientos(prev => [...prev, response.data]);
@@ -285,20 +301,18 @@ export default function MantenimientosPage() {
   // Filtrar mantenimientos
   const filteredMantenimientos = mantenimientos.filter(mantenimiento => {
     const maintenanceDate = new Date(mantenimiento.fechaInicio);
-    const matchesStartDate = filters.startDate ? maintenanceDate >= new Date(filters.startDate) : true;
-    const matchesEndDate = filters.endDate ? maintenanceDate <= new Date(filters.endDate) : true;
     const matchesUserId = (currentUserRoleId !== 1 && currentUserId) ?
         mantenimiento.idUsuario === parseInt(currentUserId) : (filters.userId ? users.find(user => user.cedula === filters.userId)?.idRol === mantenimiento.idUsuario : true);
     const matchesMonth = maintenanceDate.getMonth() === filters.month;
 
-    return matchesStartDate && matchesEndDate && matchesUserId && matchesMonth;
+    return matchesUserId && matchesMonth;
   });
 
-  if (loading.mantenimientos || loading.users) {
+  if (loading.mantenimientos || loading.users || loading.parqueaderos || loading.tiposMantenimiento) {
     return (
         <div className="container mx-auto p-4 lg:p-6 bg-gray-50 min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-orange-500"></div>
+            <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-primary"></div>
             <p className="mt-2 text-gray-700">Cargando datos...</p>
           </div>
         </div>
@@ -334,8 +348,8 @@ export default function MantenimientosPage() {
           {currentUserRoleId === 1 && (
             <button
                 onClick={() => setIsModalOpen(true)}
-                className="mt-4 md:mt-0 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg shadow-md transition-colors duration-300"
-                disabled={!!error.users}
+                className="bg-orange-500 mt-4 md:mt-0 px-4 py-2 bg-primary hover:bg-primary/80 text-white font-medium rounded-lg shadow-md transition-colors duration-300"
+                disabled={!!error.users || !!error.parqueaderos || !!error.tiposMantenimiento}
             >
               + Nuevo Mantenimiento
             </button>
@@ -351,23 +365,6 @@ export default function MantenimientosPage() {
         )}
 
         <div className="bg-white p-4 rounded-lg shadow-lg mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            Calendario de Mantenimientos - {new Date(0, filters.month).toLocaleString('es-ES', { month: 'long' })}
-          </h2>
-          {error.mantenimientos ? (
-              <div className="text-center py-8 text-gray-500">
-                No se pueden mostrar los mantenimientos debido a un error
-              </div>
-          ) : (
-              <Calendar
-                  mantenimientos={filteredMantenimientos}
-                  selectedMonth={filters.month}
-                  selectedYear={new Date().getFullYear()}
-              />
-          )}
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-lg">
           <h2 className="text-xl font-semibold mb-4 text-gray-800">Resumen de Mantenimientos</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-green-100 p-4 rounded-lg">
@@ -391,11 +388,69 @@ export default function MantenimientosPage() {
           </div>
         </div>
 
+        <div className="bg-white p-4 rounded-lg shadow-lg mb-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">
+            Calendario de Mantenimientos - {new Date(0, filters.month).toLocaleString('es-ES', { month: 'long' })}
+          </h2>
+          {error.mantenimientos ? (
+              <div className="text-center py-8 text-gray-500">
+                No se pueden mostrar los mantenimientos debido a un error
+              </div>
+          ) : (
+              <Calendar
+                  mantenimientos={filteredMantenimientos}
+                  selectedMonth={filters.month}
+                  selectedYear={new Date().getFullYear()}
+              />
+          )}
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-lg">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Detalle de Mantenimientos</h2>
+            <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="py-2 px-4 border-b">ID</th>
+                            <th className="py-2 px-4 border-b">Usuario</th>
+                            <th className="py-2 px-4 border-b">Parqueadero</th>
+                            <th className="py-2 px-4 border-b">Tipo</th>
+                            <th className="py-2 px-4 border-b">Fecha Inicio</th>
+                            <th className="py-2 px-4 border-b">Fecha Fin</th>
+                            <th className="py-2 px-4 border-b">Estado</th>
+                            <th className="py-2 px-4 border-b">Bitácoras</th>
+                            <th className="py-2 px-4 border-b">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredMantenimientos.map(m => (
+                            <tr key={m.idMantenimiento} className="hover:bg-gray-50">
+                                <td className="py-2 px-4 border-b">{m.idMantenimiento}</td>
+                                <td className="py-2 px-4 border-b">{users.find(u => u.idRol === m.idUsuario)?.nombre}</td>
+                                <td className="py-2 px-4 border-b">{parqueaderos.find(p => p.idParqueadero === m.idParqueadero)?.nombre}</td>
+                                <td className="py-2 px-4 border-b">{tiposMantenimiento.find(t => t.idTipo === m.idTipoMantenimiento)?.nombre}</td>
+                                <td className="py-2 px-4 border-b">{new Date(m.fechaInicio).toLocaleString()}</td>
+                                <td className="py-2 px-4 border-b">{new Date(m.fechaFin).toLocaleString()}</td>
+                                <td className="py-2 px-4 border-b">{m.estado}</td>
+                                <td className="py-2 px-4 border-b">{m.bitacoras.length}</td>
+                                <td className="py-2 px-4 border-b">
+                                    <button className="bg-secondary text-white px-2 py-1 rounded mr-2">Editar</button>
+                                    <button className="bg-green-500 text-white px-2 py-1 rounded">Adjuntar Bitácora</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <MaintenanceModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             onSubmit={handleAddMaintenance}
             users={users}
+            parqueaderos={parqueaderos}
+            tiposMantenimiento={tiposMantenimiento}
         />
       </div>
   );

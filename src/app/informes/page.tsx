@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Informe } from '../interfaces/Informe';
+import { Usuario } from '../interfaces/Usuario';
 import Cookies from "js-cookie";
 import axios, { AxiosError } from 'axios';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ interface ApiError {
 
 export default function InformesPage() {
   const [informes, setInformes] = useState<Informe[]>([]);
+  const [users, setUsers] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -27,6 +29,9 @@ export default function InformesPage() {
   const [newReportTitle, setNewReportTitle] = useState('');
   const [newReportDescription, setNewReportDescription] = useState('');
   const [newReportFile, setNewReportFile] = useState<File | null>(null);
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [reportUserId, setReportUserId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
@@ -65,7 +70,17 @@ export default function InformesPage() {
       }
     };
 
+    const fetchUsers = async () => {
+      try {
+        const response = await api.get<Usuario[]>('/Usuarios');
+        setUsers(response.data);
+      } catch (err) {
+        console.error('Error fetching users:', err);
+      }
+    };
+
     fetchInformes();
+    fetchUsers();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,6 +103,14 @@ export default function InformesPage() {
       const newInforme = informeResponse.data;
       const idInforme = newInforme.idInforme;
 
+      // Actualizar mantenimientos con idInforme
+      await api.put('/Mantenimiento/updateInforme', {
+        idInforme: idInforme,
+        startDate: reportStartDate,
+        endDate: reportEndDate,
+        userId: parseInt(reportUserId)
+      });
+
       // Crear DetalleInforme si hay archivo
       if (newReportFile) {
         const formData = new FormData();
@@ -106,6 +129,9 @@ export default function InformesPage() {
       setNewReportTitle('');
       setNewReportDescription('');
       setNewReportFile(null);
+      setReportStartDate('');
+      setReportEndDate('');
+      setReportUserId('');
 
       // Actualizar lista de informes
       const response = await api.get<Informe[]>(`/InformesEncabezado/usuario/${currentUserId}`);
@@ -121,7 +147,7 @@ export default function InformesPage() {
   if (loading) {
     return (
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
     );
   }
@@ -148,7 +174,7 @@ export default function InformesPage() {
               <input
                   type="text"
                   id="title"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   value={newReportTitle}
                   onChange={(e) => setNewReportTitle(e.target.value)}
                   required
@@ -159,18 +185,57 @@ export default function InformesPage() {
               <textarea
                   id="description"
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   value={newReportDescription}
                   onChange={(e) => setNewReportDescription(e.target.value)}
                   required
               />
             </div>
             <div>
+              <label htmlFor="reportStartDate" className="block text-sm font-medium text-gray-700 mb-1">Fecha Desde</label>
+              <input
+                  type="date"
+                  id="reportStartDate"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={reportStartDate}
+                  onChange={(e) => setReportStartDate(e.target.value)}
+                  required
+              />
+            </div>
+            <div>
+              <label htmlFor="reportEndDate" className="block text-sm font-medium text-gray-700 mb-1">Fecha Hasta</label>
+              <input
+                  type="date"
+                  id="reportEndDate"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={reportEndDate}
+                  onChange={(e) => setReportEndDate(e.target.value)}
+                  required
+              />
+            </div>
+            <div>
+              <label htmlFor="reportUserId" className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+              <select
+                  id="reportUserId"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={reportUserId}
+                  onChange={(e) => setReportUserId(e.target.value)}
+                  required
+              >
+                <option value="">Seleccione un usuario</option>
+                {users.map(user => (
+                    <option key={user.cedula} value={user.idRol}>
+                      {user.nombre} {user.apellido}
+                    </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label htmlFor="file" className="block text-sm font-medium text-gray-700 mb-1">Archivo (PDF/DOCX)</label>
               <input
                   type="file"
                   id="file"
-                  className="w-full px-3 py-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  className="w-full px-3 py-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-white hover:file:bg-secondary/80"
                   onChange={(e) => setNewReportFile(e.target.files ? e.target.files[0] : null)}
                   accept=".pdf,.docx"
                   required
@@ -178,7 +243,7 @@ export default function InformesPage() {
             </div>
             <button
                 type="submit"
-                className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-md transition-colors duration-300 disabled:opacity-50"
+                className="w-full py-2 px-4 bg-primary hover:bg-primary/80 text-white font-medium rounded-lg shadow-md transition-colors duration-300 disabled:opacity-50"
                 disabled={submitting}
             >
               {submitting ? 'Creando...' : 'Crear Informe'}

@@ -1,23 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Mantenimiento } from '../interfaces/Mantenimiento';
-
 import { Usuario } from '../interfaces/Usuario';
+import { Parqueadero } from '../interfaces/Parqueadero';
+import { TipoMantenimiento } from '../interfaces/TipoMantenimiento';
 
 interface MaintenanceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (newMaintenance: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado'>) => void;
+  onSubmit: (newMaintenance: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>) => void;
   users: Usuario[];
+  parqueaderos: Parqueadero[];
+  tiposMantenimiento: TipoMantenimiento[];
 }
 
-const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ isOpen, onClose, onSubmit, users }) => {
-  const [formData, setFormData] = useState<Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado'>>({
+const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ isOpen, onClose, onSubmit, users, parqueaderos, tiposMantenimiento }) => {
+  const [formData, setFormData] = useState<Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>>({
     idUsuario: 0,
     idParqueadero: 0,
     idTipoMantenimiento: 0,
-    idInforme: 0,
     fechaInicio: '',
     fechaFin: '',
     observaciones: '',
@@ -74,40 +77,40 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ isOpen, onClose, on
               </select>
             </div>
             <div className="mb-4">
-              <label htmlFor="idParqueadero" className="block text-sm font-medium text-gray-700">ID Parqueadero</label>
-              <input
-                  type="number"
+              <label htmlFor="idParqueadero" className="block text-sm font-medium text-gray-700">Parqueadero</label>
+              <select
                   id="idParqueadero"
                   name="idParqueadero"
                   value={formData.idParqueadero}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
                   required
-              />
+              >
+                <option value="">Seleccione un parqueadero</option>
+                {parqueaderos.map(p => (
+                    <option key={p.idParqueadero} value={p.idParqueadero}>
+                      {p.nombre}
+                    </option>
+                ))}
+              </select>
             </div>
             <div className="mb-4">
-              <label htmlFor="idTipoMantenimiento" className="block text-sm font-medium text-gray-700">ID Tipo Mantenimiento</label>
-              <input
-                  type="number"
+              <label htmlFor="idTipoMantenimiento" className="block text-sm font-medium text-gray-700">Tipo Mantenimiento</label>
+              <select
                   id="idTipoMantenimiento"
                   name="idTipoMantenimiento"
                   value={formData.idTipoMantenimiento}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
                   required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="idInforme" className="block text-sm font-medium text-gray-700">ID Informe</label>
-              <input
-                  type="number"
-                  id="idInforme"
-                  name="idInforme"
-                  value={formData.idInforme}
-                  onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
-                  required
-              />
+              >
+                <option value="">Seleccione un tipo</option>
+                {tiposMantenimiento.map(t => (
+                    <option key={t.idTipo} value={t.idTipo}>
+                      {t.nombre}
+                    </option>
+                ))}
+              </select>
             </div>
             <div className="mb-4">
               <label htmlFor="fechaInicio" className="block text-sm font-medium text-gray-700">Fecha Inicio</label>

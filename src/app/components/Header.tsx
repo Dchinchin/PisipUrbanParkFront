@@ -47,6 +47,9 @@ export default function Header() {
                         <li><Link href="/mantenimientos" className="px-2 py-2 hover:bg-gray-200 rounded">Mantenimientos</Link></li>
                     )}
                     {isLoggedIn && userRole === 1 && (
+                        <li><Link href="/tipos-mantenimiento" className="px-2 py-2 hover:bg-gray-200 rounded">Tipos de Mantenimiento</Link></li>
+                    )}
+                    {isLoggedIn && userRole === 1 && (
                         <li><Link href="/parqueaderos" className="px-2 py-2 hover:bg-gray-200 rounded">Parqueaderos</Link></li>
                     )}
                     {isLoggedIn && (userRole === 1 || userRole !== 1) && (
@@ -83,6 +86,9 @@ export default function Header() {
                     <ul className="flex flex-col text-base">
                         {isLoggedIn && (userRole === 1 || userRole !== 1) && (
                             <li><Link href="/mantenimientos" className="block px-4 py-3 hover:bg-gray-200 border-b border-gray-100" onClick={toggleMenu}>Mantenimientos</Link></li>
+                        )}
+                        {isLoggedIn && userRole === 1 && (
+                            <li><Link href="/tipos-mantenimiento" className="block px-4 py-3 hover:bg-gray-200 border-b border-gray-100" onClick={toggleMenu}>Tipos de Mantenimiento</Link></li>
                         )}
                         {isLoggedIn && userRole === 1 && (
                             <li><Link href="/parqueaderos" className="block px-4 py-3 hover:bg-gray-200 border-b border-gray-100" onClick={toggleMenu}>Parqueaderos</Link></li>
