@@ -46,7 +46,7 @@ export default function InformesPage() {
 
   const fetchMantenimientosForInforme = async (idInforme: number) => {
     try {
-      const response = await api.get<Mantenimiento[]>(`/Mantenimiento/byInforme/${idInforme}`);
+      const response = await api.get<Mantenimiento[]>(`/Mantenimiento?IdInforme=${idInforme}`);
       setExpandedMantenimientos(response.data);
     } catch (err) {
       console.error('Error al cargar mantenimientos para el informe:', err);
@@ -339,11 +339,11 @@ export default function InformesPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
               </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -351,19 +351,19 @@ export default function InformesPage() {
                   informes.map((informe) => (
                       <React.Fragment key={informe.idInforme}>
                         <tr className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{informe.idInforme}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{informe.idInforme}</td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-600">
                             {users.find(u => u.idRol === informe.idUsuario)?.nombre || 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{informe.titulo}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-600">{informe.titulo}</td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-600">
                             {new Date(informe.fechaCreacion).toLocaleDateString('es-ES', {
                               day: '2-digit',
                               month: '2-digit',
                               year: 'numeric'
                             })}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap">
                         <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             informe.estado === 'Completado' ? 'bg-green-100 text-green-800' :
                                 informe.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
@@ -372,7 +372,7 @@ export default function InformesPage() {
                           {informe.estado}
                         </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                                 onClick={() => handleToggleExpand(informe.idInforme)}
                                 className="text-secondary hover:text-secondary/80"

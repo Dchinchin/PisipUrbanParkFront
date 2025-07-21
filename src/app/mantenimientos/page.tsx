@@ -226,7 +226,6 @@ export default function MantenimientosPage() {
     setCurrentUserRoleId(parseInt(userRoleId));
   }, [router]);
 
-  // Configuración base de Axios
   const api = axios.create({
     baseURL: 'http://localhost:5170/api',
     timeout: 5000,
@@ -235,7 +234,6 @@ export default function MantenimientosPage() {
     }
   });
 
-  // Obtener mantenimientos
   useEffect(() => {
     const getMantenimientos = async () => {
       if (!currentUserId) return;
@@ -354,10 +352,8 @@ export default function MantenimientosPage() {
         }
       });
 
-      // Update maintenance status to 'Completado'
       await api.put(`/Mantenimiento/estado/${idMantenimiento}`, { estado: 'Completado' });
 
-      // Refresh mantenimientos list
       const response = await api.get<Mantenimiento[]>(`/Mantenimiento${currentUserRoleId !== 1 ? `/usuario/${currentUserId}` : ''}`);
       setMantenimientos(response.data);
       setIsBitacoraModalOpen(false);
@@ -473,28 +469,28 @@ export default function MantenimientosPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   ID
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Usuario
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Parqueadero
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Tipo
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha Inicio
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha Fin
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -503,19 +499,19 @@ export default function MantenimientosPage() {
               {filteredMantenimientos.length > 0 ? (
                   filteredMantenimientos.map(m => (
                       <tr key={m.idMantenimiento} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium text-gray-900">
                           #{m.idMantenimiento}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
                           {users.find(u => u.idRol === m.idUsuario)?.nombre || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
                           {parqueaderos.find(p => p.idParqueadero === m.idParqueadero)?.nombre || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
                           {tiposMantenimiento.find(t => t.idTipo === m.idTipoMantenimiento)?.nombre || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
                           {new Date(m.fechaInicio).toLocaleDateString('es-ES', {
                             day: '2-digit',
                             month: '2-digit',
@@ -524,7 +520,7 @@ export default function MantenimientosPage() {
                             minute: '2-digit'
                           })}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
                           {m.fechaFin ?
                               new Date(m.fechaFin).toLocaleDateString('es-ES', {
                                 day: '2-digit',
@@ -534,8 +530,8 @@ export default function MantenimientosPage() {
                                 minute: '2-digit'
                               }) : 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-sm md:text-xs font-medium rounded-full ${
                             m.estado === 'Completado' ? 'bg-green-100 text-green-800' :
                                 m.estado === 'Pendiente' ? 'bg-orange-100 text-orange-800' :
                                     'bg-red-100 text-red-800'
@@ -543,7 +539,7 @@ export default function MantenimientosPage() {
                           {m.estado}
                         </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
                             <button
                                 className="px-3 py-1 bg-secondary text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200"

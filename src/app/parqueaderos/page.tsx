@@ -138,19 +138,19 @@ export default function ParqueaderosPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Nombre
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Dirección
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
@@ -158,21 +158,21 @@ export default function ParqueaderosPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                   {parqueaderos.map((parqueadero) => (
                       <tr key={parqueadero.idParqueadero}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {parqueadero.idParqueadero}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-500">
                           {parqueadero.nombre}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-500">
                           {parqueadero.direccion}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className={`px-2 py-1 rounded-full text-xs ${parqueadero.estado ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                         {parqueadero.estado ? 'Activo' : 'Inactivo'}
                       </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm font-medium space-x-2">
                           <button
                               onClick={() => handleEdit(parqueadero)}
                               className="text-indigo-600 hover:text-indigo-900 hover:underline"

@@ -120,25 +120,25 @@ export default function TiposMantenimientoPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                  <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                  <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                  <th className="px-4 py-2 md:px-6 md:py-3 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                  <th className="px-4 py-2 md:px-6 md:py-3 text-right text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {tipos.map((tipo) => (
                   <tr key={tipo.idTipo} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tipo.idTipo}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tipo.nombre}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tipo.descripcion}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-900">{tipo.idTipo}</td>
+                    <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-500">{tipo.nombre}</td>
+                    <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-500">{tipo.descripcion}</td>
+                    <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${tipo.estado ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                         {tipo.estado ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button onClick={() => handleOpenModal(tipo)} className="text-secondary hover:text-secondary/80">Editar</button>
                       <button onClick={() => handleDelete(tipo.idTipo)} className="text-red-600 hover:text-red-800 ml-4">Eliminar</button>
                     </td>
