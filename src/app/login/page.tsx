@@ -25,15 +25,21 @@ export default function LoginPage() {
       });
 
       if (authResponse.ok) {
-        const isAuthenticated = await authResponse.json();
-        if (isAuthenticated) {
+        const authData = await authResponse.json();
+        if (authData.autenticado) {
           const userResponse = await fetch(`http://localhost:5170/api/Usuarios?CorreoElectronico=${email}`);
           if (userResponse.ok) {
             const userData = await userResponse.json();
             if (userData && userData.length > 0) {
-              const user = userData[0];
+              const user = { ...userData[0], contrasenaActualizada: authData.contrasenaActualizada };
               Cookies.set('userId', user.idUsuario, { expires: 7 }); // Expira en 7 días
               Cookies.set('userRoleId', user.idRol, { expires: 7 }); // Expira en 7 días
+
+              if (!authData.contrasenaActualizada) {
+                router.push('/update-password'); // Redirigir a la página de actualización de contraseña
+                return;
+              }
+
               console.log('Login successful:', user);
               alert('Inicio de sesión exitoso!');
               router.push('/'); // Redirigir a la página principal

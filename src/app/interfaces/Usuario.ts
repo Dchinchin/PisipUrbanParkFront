@@ -5,4 +5,6 @@ export interface Usuario {
   correo: string;
   cedula: string;
   contrasena: string;
+  contrasenaActualizada: boolean;
 }
+// Forced re-evaluation - Attempt 2

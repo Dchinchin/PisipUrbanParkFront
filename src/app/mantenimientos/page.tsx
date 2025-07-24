@@ -279,8 +279,12 @@ export default function MantenimientosPage() {
         return;
       }
       try {
-        const response = await api.get('/Usuarios');
-        setUsers(response.data);
+        const response = await api.get<Usuario[]>('/Usuarios');
+        const usersWithUpdatedPasswordStatus: Usuario[] = response.data.map((user: Usuario) => ({
+          ...user,
+          contrasenaActualizada: true, // Assuming existing users have updated passwords
+        }));
+        setUsers(usersWithUpdatedPasswordStatus);
         setError(prev => ({...prev, users: ''}));
       } catch (err) {
         console.error('Error al obtener usuarios:', err);

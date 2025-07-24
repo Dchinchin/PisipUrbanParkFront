@@ -7,6 +7,11 @@ import { Rol } from '../interfaces/Rol';
 import UserModal from '../components/UserModal';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
+import { AxiosError } from 'axios';
+
+interface ApiError {
+  message?: string;
+}
 
 export default function PersonalPage() {
   const [users, setUsers] = useState<Usuario[]>([]);
@@ -33,9 +38,10 @@ export default function PersonalPage() {
     try {
       const response = await axios.get<Rol[]>('http://localhost:5170/api/Roles');
       setRoles(response.data);
-    } catch (err: any) {
-      console.error('Error fetching roles:', err);
-      setError('Error al cargar roles');
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      console.error('Error fetching roles:', error);
+      setError(error.response?.data?.message || error.message || 'Error al cargar roles');
     }
   };
 
@@ -43,9 +49,14 @@ export default function PersonalPage() {
     try {
       setLoading(true);
       const response = await axios.get<Usuario[]>('http://localhost:5170/api/Usuarios?EstaEliminado=false');
-      setUsers(response.data);
-    } catch (err: any) {
-      setError(err.message);
+      const usersWithUpdatedPasswordStatus: Usuario[] = response.data.map((user: Usuario) => ({
+        ...user,
+        contrasenaActualizada: true, // Assuming existing users have updated passwords
+      }));
+      setUsers(usersWithUpdatedPasswordStatus);
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      setError(error.response?.data?.message || error.message || 'Error al cargar usuarios');
     } finally {
       setLoading(false);
     }
@@ -59,13 +70,15 @@ export default function PersonalPage() {
       await axios.delete(`http://localhost:5170/api/Usuarios/${idRol}`);
       alert('Usuario eliminado exitosamente.');
       fetchUsers(); // Recargar la lista
-    } catch (err: any) {
-      alert(`Error al eliminar usuario: ${err.message}`);
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      setError(error.response?.data?.message || error.message || 'Error al cargar usuarios');
     }
   };
 
   const handleEdit = (user: Usuario) => {
-    setCurrentUser(user);
+    const userWithUpdatedPassword: Usuario = { ...user, contrasenaActualizada: user.contrasenaActualizada || true };
+    setCurrentUser(userWithUpdatedPassword);
     setIsModalOpen(true);
   };
 
@@ -78,20 +91,22 @@ export default function PersonalPage() {
     try {
       if (currentUser) {
         // Update existing user
-        const userToUpdate: Partial<Usuario> = { ...user };
+        const userToUpdate: Partial<Usuario> = { ...user, contrasenaActualizada: user.contrasenaActualizada || true };
         if (userToUpdate.contrasena === '') {
           delete userToUpdate.contrasena;
         }
         await axios.put(`http://localhost:5170/api/Usuarios/${user.idRol}`, userToUpdate);
       } else {
         // Create new user
-        await axios.post('http://localhost:5170/api/Usuarios', user);
+        console.log('User object being sent to API:', user);
+        await axios.post('/Usuarios', user);
       }
       alert(`Usuario ${currentUser ? 'actualizado' : 'creado'} exitosamente.`);
       setIsModalOpen(false);
       fetchUsers(); // Reload the list
-    } catch (err: any) {
-      alert(`Error al ${currentUser ? 'actualizar' : 'crear'} usuario: ${err.message}`);
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      alert(`Error al ${currentUser ? 'actualizar' : 'crear'} usuario: ${error.response?.data?.message || error.message}`);
     }
   };
 

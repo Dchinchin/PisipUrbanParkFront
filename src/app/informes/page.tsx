@@ -100,7 +100,11 @@ export default function InformesPage() {
     const fetchUsers = async () => {
       try {
         const response = await api.get<Usuario[]>('/Usuarios');
-        setUsers(response.data);
+        const usersWithUpdatedPasswordStatus: Usuario[] = response.data.map((user: Usuario) => ({
+          ...user,
+          contrasenaActualizada: user.contrasenaActualizada || true, // Ensure contrasenaActualizada is always present
+        }));
+        setUsers(usersWithUpdatedPasswordStatus);
       } catch (err) {
         console.error('Error fetching users:', err);
       }

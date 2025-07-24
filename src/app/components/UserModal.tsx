@@ -31,6 +31,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
     correo: '',
     cedula: '',
     contrasena: '',
+    contrasenaActualizada: true,
   });
   const [roles, setRoles] = useState<Rol[]>([]);
 
@@ -50,7 +51,8 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
     if (user) {
       setFormData({
         ...user,
-        contrasena: user.contrasena || '', // Ensure contrasena is always a string
+        contrasena: user.contrasena || '',
+        contrasenaActualizada: user.contrasenaActualizada || true, // Ensure contrasenaActualizada is always present
       });
     } else {
       setFormData({
@@ -60,6 +62,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
         correo: '',
         cedula: '',
         contrasena: '',
+        contrasenaActualizada: true,
       });
     }
   }, [user, isOpen]);
