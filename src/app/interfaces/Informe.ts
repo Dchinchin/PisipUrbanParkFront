@@ -10,13 +10,22 @@ export interface DetalleInforme {
   estado: string;
 }
 
+export interface DetalleInforme {
+  idDetalleInforme: number;
+  idInforme: number;
+  descripcion: string;
+  archivoUrl: string;
+  estaEliminado: boolean;
+  fechaCreacion: string;
+  fechaModificacion: string;
+}
+
 export interface Informe {
   idInforme: number;
   idUsuario: number;
   titulo: string;
-  fechaCreacion: string;
-  fechaModificacion: string;
   estado: string;
-  mantenimientos: Mantenimiento[];
+  fechaCreacion: string;
   detalles: DetalleInforme[];
+  estaEliminado: boolean;
 }

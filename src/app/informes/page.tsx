@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import {Parqueadero} from "@/app/interfaces/Parqueadero";
 import {TipoMantenimiento} from "@/app/interfaces/TipoMantenimiento";
 import {Mantenimiento} from "@/app/interfaces/Mantenimiento";
+import InformeModal from '../components/InformeModal';
 
 // Configuración de Axios
 const api = axios.create({
@@ -31,18 +32,14 @@ export default function InformesPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRoleId, setCurrentUserRoleId] = useState<number | null>(null);
-  const [newReportTitle, setNewReportTitle] = useState('');
-  const [newReportDescription, setNewReportDescription] = useState('');
-  const [newReportFile, setNewReportFile] = useState<File | null>(null);
-  const [reportStartDate, setReportStartDate] = useState('');
-  const [reportEndDate, setReportEndDate] = useState('');
-  const [reportUserId, setReportUserId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [expandedInformeId, setExpandedInformeId] = useState<number | null>(null);
   const [expandedMantenimientos, setExpandedMantenimientos] = useState<Mantenimiento[]>([]);
   const [expandedBitacoraId, setExpandedBitacoraId] = useState<number | null>(null);
+  const [isInformeModalOpen, setIsInformeModalOpen] = useState(false);
+  const [currentInforme, setCurrentInforme] = useState<Informe | undefined>(undefined);
   const router = useRouter();
 
   const fetchMantenimientosForInforme = async (idInforme: number) => {
@@ -69,6 +66,55 @@ export default function InformesPage() {
     setExpandedBitacoraId(prevId => (prevId === idMantenimiento ? null : idMantenimiento));
   };
 
+  const fetchInformes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      let url = '/InformesEncabezado?EstaEliminado=false';
+      if (currentUserRoleId && parseInt(currentUserRoleId.toString()) !== 1 && currentUserId) {
+        url = `/InformesEncabezado?IdUsuario=${currentUserId}&EstaEliminado=false`;
+      }
+
+      const response = await api.get<Informe[]>(url);
+      setInformes(response.data);
+    } catch (err) {
+      const error = err as AxiosError<ApiError>;
+      setError(error.response?.data?.message || error.message || 'Error al cargar informes');
+      console.error('Error fetching reports:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditInforme = (informe: Informe) => {
+    setCurrentInforme(informe);
+    setIsInformeModalOpen(true);
+  };
+
+  const handleDeleteInforme = async (idInforme: number) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este informe?')) {
+      return;
+    }
+    try {
+      // Eliminar lógicamente el encabezado del informe
+      await api.put(`/InformesEncabezado/${idInforme}`, { estaEliminado: true });
+
+      // Eliminar lógicamente el detalle del informe si existe
+      const informeToDelete = informes.find(inf => inf.idInforme === idInforme);
+      if (informeToDelete && informeToDelete.detalles && informeToDelete.detalles.length > 0) {
+        const detalleId = informeToDelete.detalles[0].idDetalleInforme;
+        await api.put(`/DetalleInforme/${detalleId}`, { estaEliminado: true });
+      }
+
+      fetchInformes(); // Refrescar la lista de informes
+      alert('Informe eliminado exitosamente.');
+    } catch (err) {
+      console.error('Error al eliminar informe:', err);
+      alert('Error al eliminar el informe. Por favor intente nuevamente.');
+    }
+  };
+
   useEffect(() => {
     const userId = Cookies.get('userId') || null;
     const userRoleId = Cookies.get('userRoleId');
@@ -81,26 +127,7 @@ export default function InformesPage() {
     setCurrentUserId(userId);
     setCurrentUserRoleId(userRoleId ? parseInt(userRoleId) : null);
 
-    const fetchInformes = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        let url = '/InformesEncabezado?EstaEliminado=false';
-        if (userRoleId && parseInt(userRoleId) !== 1 && userId) {
-          url = `/InformesEncabezado?IdUsuario=${userId}&EstaEliminado=false`;
-        }
-
-        const response = await api.get<Informe[]>(url);
-        setInformes(response.data);
-      } catch (err) {
-        const error = err as AxiosError<ApiError>;
-        setError(error.response?.data?.message || error.message || 'Error al cargar informes');
-        console.error('Error fetching reports:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    fetchInformes(); // Initial fetch
 
     const fetchUsers = async () => {
       try {
@@ -133,14 +160,27 @@ export default function InformesPage() {
       }
     };
 
-    fetchInformes();
     fetchUsers();
     fetchParqueaderos();
     fetchTiposMantenimiento();
-  }, [router]);
+  }, [router, currentUserId, currentUserRoleId]); // Dependencias actualizadas
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (
+    informeData: {
+      idInforme?: number;
+      idUsuario: number;
+      titulo: string;
+      estado: string;
+      estaEliminado?: boolean;
+    },
+    detalleInformeData: {
+      idDetalleInforme?: number;
+      descripcion: string;
+      archivoFile: File | null;
+    },
+    reportStartDate: string,
+    reportEndDate: string
+  ) => {
     setSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
@@ -150,56 +190,74 @@ export default function InformesPage() {
         throw new Error('No se pudo identificar al usuario');
       }
 
-      const informeResponse = await api.post('/InformesEncabezado', {
-        idUsuario: parseInt(currentUserId),
-        titulo: newReportTitle,
-        estado: 'Generado'
-      });
+      let newInforme: Informe;
+      let idInforme: number;
 
-      const newInforme = informeResponse.data;
-      const idInforme = newInforme.idInforme;
-
-      const fechaDesdeISO = new Date(reportStartDate).toISOString();
-      const fechaHastaISO = new Date(reportEndDate).toISOString();
-
-      const mantenimientosResponse = await api.get<Mantenimiento[]>(`/Mantenimiento?IdUsuario=${currentUserId}&FechaDesde=${fechaDesdeISO}&FechaHasta=${fechaHastaISO}&Estado=Completado`);
-      const mantenimientosParaAsociar = mantenimientosResponse.data;
-
-      if (mantenimientosParaAsociar.length > 0) {
-        const updatePromises = mantenimientosParaAsociar.map(m =>
-            api.put(`/Mantenimiento/${m.idMantenimiento}`, { ...m, idInforme: idInforme })
-        );
-        await Promise.all(updatePromises);
+      if (informeData.idInforme) {
+        // Actualizar informe existente
+        const response = await api.put(`/InformesEncabezado/${informeData.idInforme}`, informeData);
+        newInforme = response.data;
+        idInforme = newInforme.idInforme;
       } else {
-        console.warn("No se encontraron mantenimientos completados en el rango de fechas para asociar al informe.");
+        // Crear nuevo informe
+        const response = await api.post('/InformesEncabezado', {
+          idUsuario: parseInt(currentUserId),
+          titulo: informeData.titulo,
+          estado: 'Generado',
+          estaEliminado: false,
+        });
+        newInforme = response.data;
+        idInforme = newInforme.idInforme;
+
+        // Asociar mantenimientos solo si es un nuevo informe
+        const fechaDesdeISO = new Date(reportStartDate).toISOString();
+        const fechaHastaISO = new Date(reportEndDate).toISOString();
+
+        const mantenimientosResponse = await api.get<Mantenimiento[]>(`/Mantenimiento?IdUsuario=${currentUserId}&FechaDesde=${fechaDesdeISO}&FechaHasta=${fechaHastaISO}&Estado=Completado`);
+        const mantenimientosParaAsociar = mantenimientosResponse.data;
+
+        if (mantenimientosParaAsociar.length > 0) {
+          const updatePromises = mantenimientosParaAsociar.map(m =>
+            api.put(`/Mantenimiento/${m.idMantenimiento}`, { ...m, idInforme: idInforme })
+          );
+          await Promise.all(updatePromises);
+        } else {
+          console.warn("No se encontraron mantenimientos completados en el rango de fechas para asociar al informe.");
+        }
       }
 
-      if (newReportFile) {
+      // Manejar DetalleInforme (crear o actualizar)
+      if (detalleInformeData.archivoFile || detalleInformeData.descripcion) {
         const formData = new FormData();
         formData.append('idInforme', idInforme.toString());
-        formData.append('descripcion', newReportDescription);
-        formData.append('archivoFile', newReportFile);
+        formData.append('descripcion', detalleInformeData.descripcion);
+        if (detalleInformeData.archivoFile) {
+          formData.append('archivoFile', detalleInformeData.archivoFile);
+        }
 
-        await api.post('/DetalleInforme', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        if (detalleInformeData.idDetalleInforme) {
+          // Actualizar DetalleInforme existente
+          await api.put(`/DetalleInforme/${detalleInformeData.idDetalleInforme}`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+        } else if (detalleInformeData.archivoFile) {
+          // Crear nuevo DetalleInforme (solo si hay un archivo, la descripción sola no crea un detalle)
+          await api.post('/DetalleInforme', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+        }
       }
 
-      setSubmitSuccess('Informe creado exitosamente!');
-      setNewReportTitle('');
-      setNewReportDescription('');
-      setNewReportFile(null);
-      setReportStartDate('');
-      setReportEndDate('');
-      setReportUserId('');
-
-      const response = await api.get<Informe[]>(`/InformesEncabezado?IdUsuario=${currentUserId}`);
-      setInformes(response.data);
+      setSubmitSuccess(informeData.idInforme ? 'Informe actualizado exitosamente!' : 'Informe creado exitosamente!');
+      fetchInformes(); // Llamar a la función de carga de informes para actualizar la lista
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      setSubmitError(error.response?.data?.message || error.message || 'Error al crear el informe');
+      setSubmitError(error.response?.data?.message || error.message || 'Error al guardar el informe');
+      throw error; // Re-throw para que el modal pueda manejar el error
     } finally {
       setSubmitting(false);
     }
@@ -260,170 +318,18 @@ export default function InformesPage() {
           <p className="mt-2 text-gray-600">Crea y administra los informes de mantenimiento</p>
         </div>
 
-        {/* Formulario de creación */}
+        {/* Botón para abrir el modal de creación */}
         {currentUserRoleId !== 1 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
-                <h2 className="text-xl font-semibold text-white">Crear Nuevo Informe</h2>
-              </div>
-              <div className="p-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">Título del Informe *</label>
-                      <input
-                          type="text"
-                          id="title"
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                          value={newReportTitle}
-                          onChange={(e) => setNewReportTitle(e.target.value)}
-                          required
-                          placeholder="Ej: Informe mensual de mantenimiento"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">Descripción *</label>
-                      <textarea
-                          id="description"
-                          rows={3}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                          value={newReportDescription}
-                          onChange={(e) => setNewReportDescription(e.target.value)}
-                          required
-                          placeholder="Descripción detallada del informe"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="reportStartDate" className="block text-sm font-medium text-gray-700 mb-2">Fecha Desde *</label>
-                      <div className="relative">
-                        <input
-                            type="date"
-                            id="reportStartDate"
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            value={reportStartDate}
-                            onChange={(e) => {
-                              setReportStartDate(e.target.value);
-                              if (reportEndDate && new Date(e.target.value) > new Date(reportEndDate)) {
-                                setReportEndDate('');
-                              }
-                            }}
-                            required
-                        />
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label htmlFor="reportEndDate" className="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta *</label>
-                      <div className="relative">
-                        <input
-                            type="date"
-                            id="reportEndDate"
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 disabled:bg-gray-100"
-                            value={reportEndDate}
-                            onChange={(e) => setReportEndDate(e.target.value)}
-                            required
-                            disabled={!reportStartDate}
-                            min={reportStartDate}
-                        />
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Archivo Adjunto (PDF/DOCX) *</label>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl">
-                      <div className="space-y-1 text-center">
-                        <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                          <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        <div className="flex text-sm text-gray-600">
-                          <label htmlFor="file" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                            <span>Subir un archivo</span>
-                            <input
-                                type="file"
-                                id="file"
-                                className="sr-only"
-                                onChange={(e) => setNewReportFile(e.target.files ? e.target.files[0] : null)}
-                                accept=".pdf,.docx"
-                                required
-                            />
-                          </label>
-                          <p className="pl-1">o arrastrar y soltar</p>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          {newReportFile ? newReportFile.name : 'PDF o DOCX de hasta 10MB'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                        type="submit"
-                        className="cursor-pointer w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-medium rounded-lg shadow-md transition duration-200 disabled:opacity-70 flex items-center justify-center"
-                        disabled={submitting}
-                    >
-                      {submitting ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Procesando...
-                          </>
-                      ) : (
-                          <>
-                            <svg className="-ml-1 mr-3 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" />
-                            </svg>
-                            Generar Informe
-                          </>
-                      )}
-                    </button>
-                  </div>
-
-                  {submitError && (
-                      <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div className="ml-3">
-                            <p className="text-sm text-red-700">{submitError}</p>
-                          </div>
-                        </div>
-                      </div>
-                  )}
-                  {submitSuccess && (
-                      <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div className="ml-3">
-                            <p className="text-sm text-green-700">{submitSuccess}</p>
-                          </div>
-                        </div>
-                      </div>
-                  )}
-                </form>
-              </div>
+            <div className="mb-8">
+              <button
+                  onClick={() => {
+                    setCurrentInforme(undefined); // Para crear un nuevo informe
+                    setIsInformeModalOpen(true);
+                  }}
+                  className="bg-orange-500 px-4 py-2 bg-primary hover:bg-primary/80 text-white font-medium rounded-lg shadow-md transition-colors duration-300"
+              >
+                + Nuevo Informe
+              </button>
             </div>
         )}
 
@@ -501,6 +407,22 @@ export default function InformesPage() {
                                   </svg>
                               )}
                             </button>
+                            {currentUserRoleId !== 1 && (
+                                <>
+                                  <button
+                                      onClick={() => handleEditInforme(informe)}
+                                      className="cursor-pointer px-3 py-1 bg-blue-400 text-white text-xs rounded-md hover:bg-blue-500 transition-colors duration-200"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                      onClick={() => handleDeleteInforme(informe.idInforme)}
+                                      className="cursor-pointer px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </>
+                            )}
                           </td>
                         </tr>
                         {expandedInformeId === informe.idInforme && (
@@ -637,6 +559,14 @@ export default function InformesPage() {
             </table>
           </div>
         </div>
+        {/* Informe Modal */}
+        <InformeModal
+            isOpen={isInformeModalOpen}
+            onClose={() => setIsInformeModalOpen(false)}
+            onSubmit={handleSubmit}
+            informe={currentInforme}
+            currentUserId={currentUserId}
+        />
       </div>
   );
 }

@@ -226,12 +226,15 @@ export default function MantenimientosPage() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBitacoraModalOpen, setIsBitacoraModalOpen] = useState(false);
+  const [isBitacoraEditModalOpen, setIsBitacoraEditModalOpen] = useState(false); // New state for bitacora edit modal
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [selectedDayMantenimientos, setSelectedDayMantenimientos] = useState<Mantenimiento[]>([]);
   const [selectedMantenimientoId, setSelectedMantenimientoId] = useState<number | null>(null);
   const [currentMaintenance, setCurrentMaintenance] = useState<Mantenimiento | undefined>(undefined);
+  const [currentBitacora, setCurrentBitacora] = useState<Bitacora | undefined>(undefined); // New state for current bitacora
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRoleId, setCurrentUserRoleId] = useState<number | null>(null);
+  const [expandedBitacoraId, setExpandedBitacoraId] = useState<number | null>(null); // New state for bitacora expansion
   const router = useRouter();
 
   useEffect(() => {
@@ -280,10 +283,6 @@ export default function MantenimientosPage() {
   // Obtener usuarios
   useEffect(() => {
     const getUsers = async () => {
-      if (currentUserRoleId !== 1) {
-        setLoading(prev => ({...prev, users: false}));
-        return;
-      }
       try {
         const response = await api.get<Usuario[]>('/Usuarios');
         const usersWithUpdatedPasswordStatus: Usuario[] = response.data.map((user: Usuario) => ({
@@ -300,7 +299,7 @@ export default function MantenimientosPage() {
       }
     };
     getUsers();
-  }, [currentUserRoleId]);
+  }, []);
 
   // Obtener Parqueaderos
   useEffect(() => {
@@ -335,6 +334,10 @@ export default function MantenimientosPage() {
     };
     getTiposMantenimiento();
   }, []);
+
+  const handleToggleBitacoras = (idMantenimiento: number) => {
+    setExpandedBitacoraId(prevId => (prevId === idMantenimiento ? null : idMantenimiento));
+  };
 
   // Crear nuevo mantenimiento
   const handleAddMaintenance = async (maintenanceData: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>) => {
@@ -388,38 +391,71 @@ export default function MantenimientosPage() {
     return matchesStartDate && matchesEndDate && matchesUserId && matchesMonth;
   });
 
-  const handleAddBitacora = async (idMantenimiento: number, newBitacora: Omit<Bitacora, 'idBitacora' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idMantenimiento'>, imageFile: File | null) => {
+  const handleAddBitacora = async (bitacoraData: Partial<Bitacora>, imageFile: File | null) => {
     try {
       const formData = new FormData();
-      formData.append('IdMantenimiento', idMantenimiento.toString());
-      formData.append('Descripcion', newBitacora.descripcion);
-      formData.append('FechaHora', new Date().toISOString());
+      formData.append('Descripcion', bitacoraData.descripcion || '');
+      formData.append('FechaHora', bitacoraData.fechaHora || new Date().toISOString());
+
       if (imageFile) {
         formData.append('ImagenFile', imageFile);
       }
 
-      await api.post('/Bitacora', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      const mantenimientoToUpdate = mantenimientos.find(m => m.idMantenimiento === idMantenimiento);
-      if (!mantenimientoToUpdate) {
-        throw new Error('No se encontró el mantenimiento para actualizar.');
+      if (bitacoraData.idBitacora) {
+        // Update existing bitacora
+        formData.append('IdBitacora', bitacoraData.idBitacora.toString());
+        formData.append('IdMantenimiento', bitacoraData.idMantenimiento?.toString() || '');
+        await api.put(`/Bitacora/${bitacoraData.idBitacora}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      } else {
+        // Create new bitacora
+        formData.append('IdMantenimiento', bitacoraData.idMantenimiento?.toString() || '');
+        await api.post('/Bitacora', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
       }
 
-
-      await api.put(`/Mantenimiento/${idMantenimiento}`, { estado: 'Completado' });
-
-
-      const response = await api.get<Mantenimiento[]>(`/Mantenimiento?EstaEliminado=false${currentUserRoleId !== 1 ? `&Iusuario=${currentUserId}` : ''}`);
+      // Refresh mantenimientos after bitacora operation
+      const response = await api.get<Mantenimiento[]>(`/Mantenimiento?EstaEliminado=false${currentUserRoleId !== 1 ? `&IdUsuario=${currentUserId}` : ''}`);
       setMantenimientos(response.data);
       setIsBitacoraModalOpen(false);
+      setIsBitacoraEditModalOpen(false);
+      setCurrentBitacora(undefined);
+
+      // If it's a new bitacora, update maintenance status to 'Completado'
+      if (!bitacoraData.idBitacora && bitacoraData.idMantenimiento) {
+        await api.put(`/Mantenimiento/${bitacoraData.idMantenimiento}`, { estado: 'Completado' });
+      }
 
     } catch (err) {
-      console.error('Error al adjuntar bitácora o actualizar mantenimiento:', err);
-      alert('Error al adjuntar la bitácora o actualizar el mantenimiento. Por favor intente nuevamente.');
+      console.error('Error al guardar bitácora:', err);
+      alert('Error al guardar la bitácora. Por favor intente nuevamente.');
+    }
+  };
+
+  const handleEditBitacora = (bitacora: Bitacora) => {
+    setCurrentBitacora(bitacora);
+    setIsBitacoraEditModalOpen(true);
+  };
+
+  const handleDeleteBitacora = async (idBitacora: number, idMantenimiento: number) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta bitácora?')) {
+      return;
+    }
+    try {
+      await api.delete(`/Bitacora/${idBitacora}`);
+      // Refresh mantenimientos after deletion
+      const response = await api.get<Mantenimiento[]>(`/Mantenimiento?EstaEliminado=false${currentUserRoleId !== 1 ? `&IdUsuario=${currentUserId}` : ''}`);
+      setMantenimientos(response.data);
+      alert('Bitácora eliminada exitosamente.');
+    } catch (err) {
+      console.error('Error al eliminar bitácora:', err);
+      alert('Error al eliminar la bitácora. Por favor intente nuevamente.');
     }
   };
 
@@ -555,6 +591,9 @@ export default function MantenimientosPage() {
                   Estado
                 </th>
                 <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Bitácoras
+                </th>
+                <th scope="col" className="px-4 py-2 md:px-6 md:py-3 lg:px-8 lg:py-4 text-left text-sm md:text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -562,78 +601,155 @@ export default function MantenimientosPage() {
               <tbody className="bg-white divide-y divide-gray-200">
               {filteredMantenimientos.length > 0 ? (
                   filteredMantenimientos.sort((a, b) => b.idMantenimiento - a.idMantenimiento).map(m => (
-                      <tr key={m.idMantenimiento} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium text-gray-900">
-                          #{m.idMantenimiento}
-                        </td>
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
-                          {users.find(u => u.idUsuario === m.idUsuario)?.nombre || 'N/A'}
-                        </td>
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
-                          {parqueaderos.find(p => p.idParqueadero === m.idParqueadero)?.nombre || 'N/A'}
-                        </td>
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
-                          {tiposMantenimiento.find(t => t.idTipo === m.idTipoMantenimiento)?.nombre || 'N/A'}
-                        </td>
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(m.fechaInicio).toLocaleDateString('es-ES', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
-                          {m.fechaFin ?
-                              new Date(m.fechaFin).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : 'N/A'}
-                        </td>
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-sm md:text-xs font-medium rounded-full ${
-                            m.estado === 'Completado' ? 'bg-green-100 text-green-800' :
-                                m.estado === 'Pendiente' ? 'bg-orange-100 text-orange-800' :
-                                    'bg-red-100 text-red-800'
-                        }`}>
-                          {m.estado}
-                        </span>
-                        </td>
-                        <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            {currentUserRoleId === 1 ? (
-                                <>
-                                  <button
-                                      onClick={() => handleEditMaintenance(m)}
-                                      className="cursor-pointer px-3 py-1 bg-blue-400 text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200"
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                      onClick={() => handleDeleteMaintenance(m.idMantenimiento)}
-                                      className="cursor-pointer px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
-                                  >
-                                    Eliminar
-                                  </button>
-                                </>
-                            ) : (
+                      <React.Fragment key={m.idMantenimiento}>
+                        <tr className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium text-gray-900">
+                            #{m.idMantenimiento}
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
+                            {users.find(u => u.idUsuario === m.idUsuario)?.nombre || 'N/A'}
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
+                            {parqueaderos.find(p => p.idParqueadero === m.idParqueadero)?.nombre || 'N/A'}
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
+                            {tiposMantenimiento.find(t => t.idTipo === m.idTipoMantenimiento)?.nombre || 'N/A'}
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(m.fechaInicio).toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
+                            {m.fechaFin ?
+                                new Date(m.fechaFin).toLocaleDateString('es-ES', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 'N/A'}
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-sm md:text-xs font-medium rounded-full ${
+                              m.estado === 'Completado' ? 'bg-green-100 text-green-800' :
+                                  m.estado === 'Pendiente' ? 'bg-orange-100 text-orange-800' :
+                                      'bg-red-100 text-red-800'
+                          }`}>
+                            {m.estado}
+                          </span>
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium">
+                            {m.bitacoras && m.bitacoras.length > 0 ? (
                                 <button
-                                    className="px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition-colors duration-200"
-                                    onClick={() => {
-                                      setSelectedMantenimientoId(m.idMantenimiento);
-                                      setIsBitacoraModalOpen(true);
-                                    }}
+                                    onClick={() => handleToggleBitacoras(m.idMantenimiento)}
+                                    className="text-blue-600 hover:text-blue-900 flex items-center"
                                 >
-                                  Bitácora
+                                  {expandedBitacoraId === m.idMantenimiento ? (
+                                      <>
+                                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
+                                        </svg>
+                                        Ocultar
+                                      </>
+                                  ) : (
+                                      <>
+                                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                        Ver ({m.bitacoras.length})
+                                      </>
+                                  )}
                                 </button>
+                            ) : (
+                                <span className="text-gray-500">Sin bitácoras</span>
                             )}
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              {currentUserRoleId === 1 ? (
+                                  <>
+                                    <button
+                                        onClick={() => handleEditMaintenance(m)}
+                                        className="cursor-pointer px-3 py-1 bg-blue-400 text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200"
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteMaintenance(m.idMantenimiento)}
+                                        className="cursor-pointer px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </>
+                              ) : (
+                                  <button
+                                      className="px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition-colors duration-200"
+                                      onClick={() => {
+                                        setSelectedMantenimientoId(m.idMantenimiento);
+                                        setIsBitacoraModalOpen(true);
+                                      }}
+                                  >
+                                    Bitácora
+                                  </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedBitacoraId === m.idMantenimiento && m.bitacoras && m.bitacoras.length > 0 && (
+                            <tr>
+                              <td colSpan={9} className="px-4 py-3 bg-gray-50">
+                                <div className="bg-white rounded-lg shadow-xs border border-gray-200 p-4">
+                                  <h5 className="text-md font-semibold text-gray-700 mb-3">Detalle de Bitácoras</h5>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {m.bitacoras.map(bitacora => (
+                                        <div key={bitacora.idBitacora} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition duration-200">
+                                          {bitacora.imagenUrl && (
+                                              <div className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
+                                                <img
+                                                    src={bitacora.imagenUrl}
+                                                    alt="Bitácora"
+                                                    className="w-full h-full object-cover transition duration-200 hover:scale-105"
+                                                />
+                                              </div>
+                                          )}
+                                          <div className="p-4">
+                                            <p className="text-sm text-gray-700 mb-2">{bitacora.descripcion}</p>
+                                            <div className="flex items-center text-xs text-gray-500 mb-2">
+                                              <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                              </svg>
+                                              {new Date(bitacora.fechaHora).toLocaleString()}
+                                            </div>
+                                            {currentUserRoleId !== 1 && (
+                                              <div className="flex space-x-2">
+                                                <button
+                                                  onClick={() => handleEditBitacora(bitacora)}
+                                                  className="cursor-pointer px-3 py-1 bg-blue-400 text-white text-xs rounded-md hover:bg-blue-500 transition-colors duration-200"
+                                                >
+                                                  Editar
+                                                </button>
+                                                <button
+                                                  onClick={() => handleDeleteBitacora(bitacora.idBitacora, m.idMantenimiento)}
+                                                  className="cursor-pointer px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
+                                                >
+                                                  Eliminar
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                        )}
+                      </React.Fragment>
                   ))
               ) : (
                   <tr>
@@ -660,11 +776,23 @@ export default function MantenimientosPage() {
             maintenance={currentMaintenance}
         />
 
-        {selectedMantenimientoId && (
+        {isBitacoraModalOpen && selectedMantenimientoId && (
             <BitacoraModal
                 isOpen={isBitacoraModalOpen}
                 onClose={() => setIsBitacoraModalOpen(false)}
                 idMantenimiento={selectedMantenimientoId}
+                onSubmit={handleAddBitacora}
+            />
+        )}
+
+        {isBitacoraEditModalOpen && currentBitacora && (
+            <BitacoraModal
+                isOpen={isBitacoraEditModalOpen}
+                onClose={() => {
+                  setIsBitacoraEditModalOpen(false);
+                  setCurrentBitacora(undefined);
+                }}
+                bitacora={currentBitacora}
                 onSubmit={handleAddBitacora}
             />
         )}

@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bitacora } from '../interfaces/Mantenimiento';
 
 interface BitacoraModalProps {
   isOpen: boolean;
   onClose: () => void;
-  idMantenimiento: number;
-  onSubmit: (idMantenimiento: number, newBitacora: Omit<Bitacora, 'idBitacora' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idMantenimiento'>, imageFile: File | null) => void;
+  idMantenimiento?: number; // Make optional for editing existing bitacora
+  onSubmit: (bitacoraData: Partial<Bitacora>, imageFile: File | null) => void;
+  bitacora?: Bitacora; // Optional, for editing
 }
 
-const BitacoraModal: React.FC<BitacoraModalProps> = ({ isOpen, onClose, idMantenimiento, onSubmit }) => {
+const BitacoraModal: React.FC<BitacoraModalProps> = ({ isOpen, onClose, idMantenimiento, onSubmit, bitacora }) => {
   React.useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -25,9 +26,30 @@ const BitacoraModal: React.FC<BitacoraModalProps> = ({ isOpen, onClose, idManten
   const [descripcion, setDescripcion] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
 
+  useEffect(() => {
+    if (isOpen && bitacora) {
+      setDescripcion(bitacora.descripcion);
+      // No se puede pre-cargar un File input por seguridad, solo se muestra el nombre si existe
+      // setImageFile(bitacora.imagenUrl ? new File([], bitacora.imagenUrl.split('/').pop() || '') : null);
+    } else if (isOpen) {
+      setDescripcion('');
+      setImageFile(null);
+    }
+  }, [isOpen, bitacora]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(idMantenimiento, { descripcion, imagenUrl: '', fechaHora: new Date().toISOString() }, imageFile);
+    const bitacoraData: Partial<Bitacora> = {
+      descripcion,
+      fechaHora: new Date().toISOString(),
+    };
+    if (bitacora?.idBitacora) {
+      bitacoraData.idBitacora = bitacora.idBitacora;
+      bitacoraData.idMantenimiento = bitacora.idMantenimiento;
+    } else {
+      bitacoraData.idMantenimiento = idMantenimiento;
+    }
+    onSubmit(bitacoraData, imageFile);
     setDescripcion('');
     setImageFile(null);
     onClose();
@@ -44,7 +66,7 @@ const BitacoraModal: React.FC<BitacoraModalProps> = ({ isOpen, onClose, idManten
         <div className="fixed inset-0 flex justify-center items-center z-70">
           <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Adjuntar Bitácora</h2>
+              <h2 className="text-2xl font-bold text-gray-800">{bitacora ? 'Editar Bitácora' : 'Adjuntar Bitácora'}</h2>
               <button
                   onClick={onClose}
                   className="text-gray-500 hover:text-gray-700"
@@ -77,6 +99,9 @@ const BitacoraModal: React.FC<BitacoraModalProps> = ({ isOpen, onClose, idManten
                     className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-white hover:file:bg-secondary/80"
                     accept="image/*"
                 />
+                {bitacora?.imagenUrl && !imageFile && (
+                  <p className="text-sm text-gray-500 mt-2">Archivo actual: <a href={bitacora.imagenUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{bitacora.imagenUrl.split('/').pop()}</a></p>
+                )}
               </div>
               <div className="flex justify-end space-x-4">
                 <button
@@ -90,7 +115,7 @@ const BitacoraModal: React.FC<BitacoraModalProps> = ({ isOpen, onClose, idManten
                     type="submit"
                     className="bg-orange-500 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/80 transition-colors duration-300"
                 >
-                  Adjuntar
+                  {bitacora ? 'Guardar Cambios' : 'Adjuntar'}
                 </button>
               </div>
             </form>
