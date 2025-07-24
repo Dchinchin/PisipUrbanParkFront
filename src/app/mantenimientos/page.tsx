@@ -194,6 +194,13 @@ const Filters: React.FC<FiltersProps> = ({ onFilterChange, currentFilters, users
 };
 
 // Componente principal
+const api = axios.create({
+    baseURL: 'http://localhost:5170/api',
+    timeout: 5000,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
 export default function MantenimientosPage() {
   const [mantenimientos, setMantenimientos] = useState<Mantenimiento[]>([]);
   const [users, setUsers] = useState<Usuario[]>([]);
@@ -239,14 +246,6 @@ export default function MantenimientosPage() {
     setCurrentUserRoleId(parseInt(userRoleId));
   }, [router]);
 
-  const api = axios.create({
-    baseURL: 'http://localhost:5170/api',
-    timeout: 5000,
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  });
-
   useEffect(() => {
     const getMantenimientos = async () => {
       if (!currentUserId) return;
@@ -269,7 +268,7 @@ export default function MantenimientosPage() {
       }
     };
     getMantenimientos();
-  }, [currentUserId, currentUserRoleId, api]);
+  }, [currentUserId, currentUserRoleId]);
 
   // Obtener usuarios
   useEffect(() => {
@@ -294,7 +293,7 @@ export default function MantenimientosPage() {
       }
     };
     getUsers();
-  }, [currentUserRoleId, api]);
+  }, [currentUserRoleId]);
 
   // Obtener Parqueaderos
   useEffect(() => {
@@ -311,7 +310,7 @@ export default function MantenimientosPage() {
       }
     };
     getParqueaderos();
-  }, [api]);
+  }, []);
 
   // Obtener Tipos de Mantenimiento
   useEffect(() => {
@@ -328,7 +327,7 @@ export default function MantenimientosPage() {
       }
     };
     getTiposMantenimiento();
-  }, [api]);
+  }, []);
 
   // Crear nuevo mantenimiento
   const handleAddMaintenance = async (newMaintenance: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>) => {

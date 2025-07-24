@@ -81,9 +81,9 @@ export default function InformesPage() {
         setLoading(true);
         setError(null);
 
-        let url = '/InformesEncabezado';
+        let url = '/InformesEncabezado?EstaEliminado=false';
         if (userRoleId && parseInt(userRoleId) !== 1 && userId) {
-          url = `/InformesEncabezado/usuario/${userId}`;
+          url = `/InformesEncabezado?IdUsuario=${userId}&EstaEliminado=false`;
         }
 
         const response = await api.get<Informe[]>(url);
@@ -145,24 +145,34 @@ export default function InformesPage() {
         throw new Error('No se pudo identificar al usuario');
       }
 
-      // Crear InformeEncabezado
+      // 1. Crear el Encabezado del Informe
       const informeResponse = await api.post('/InformesEncabezado', {
         idUsuario: parseInt(currentUserId),
-        titulo: newReportTitle
+        titulo: newReportTitle,
+        estado: 'Generado' // O el estado inicial que corresponda
       });
 
       const newInforme = informeResponse.data;
       const idInforme = newInforme.idInforme;
 
-      // Actualizar mantenimientos con idInforme
-      await api.put('/Mantenimiento/updateInforme', {
-        idInforme: idInforme,
-        startDate: reportStartDate,
-        endDate: reportEndDate,
-        userId: parseInt(currentUserId)
-      });
+      // 2. Obtener los mantenimientos que cumplen con todos los criterios
+      const fechaDesdeISO = new Date(reportStartDate).toISOString();
+      const fechaHastaISO = new Date(reportEndDate).toISOString();
 
-      // Crear DetalleInforme si hay archivo
+      const mantenimientosResponse = await api.get<Mantenimiento[]>(`/Mantenimiento?IdUsuario=${currentUserId}&FechaDesde=${fechaDesdeISO}&FechaHasta=${fechaHastaISO}&Estado=Completado`);
+      const mantenimientosParaAsociar = mantenimientosResponse.data;
+
+      // 3. Actualizar cada mantenimiento individualmente
+      if (mantenimientosParaAsociar.length > 0) {
+        const updatePromises = mantenimientosParaAsociar.map(m =>
+          api.put(`/Mantenimiento/${m.idMantenimiento}`, { ...m, idInforme: idInforme })
+        );
+        await Promise.all(updatePromises);
+      } else {
+          console.warn("No se encontraron mantenimientos completados en el rango de fechas para asociar al informe.");
+      }
+
+      // 4. Crear DetalleInforme si hay archivo
       if (newReportFile) {
         const formData = new FormData();
         formData.append('idInforme', idInforme.toString());
@@ -184,7 +194,7 @@ export default function InformesPage() {
       setReportEndDate('');
       setReportUserId('');
 
-      // Actualizar lista de informes
+      // 5. Actualizar lista de informes
       const response = await api.get<Informe[]>(`/InformesEncabezado/usuario/${currentUserId}`);
       setInformes(response.data);
     } catch (err) {
@@ -262,7 +272,13 @@ export default function InformesPage() {
                         id="reportStartDate"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                         value={reportStartDate}
-                        onChange={(e) => setReportStartDate(e.target.value)}
+                        onChange={(e) => {
+                          setReportStartDate(e.target.value);
+                          // Reset end date if start date changes to avoid invalid range
+                          if (reportEndDate && new Date(e.target.value) > new Date(reportEndDate)) {
+                            setReportEndDate('');
+                          }
+                        }}
                         required
                     />
                   </div>
@@ -271,10 +287,12 @@ export default function InformesPage() {
                     <input
                         type="date"
                         id="reportEndDate"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100"
                         value={reportEndDate}
                         onChange={(e) => setReportEndDate(e.target.value)}
                         required
+                        disabled={!reportStartDate} // Disable if start date is not selected
+                        min={reportStartDate} // Set min date to start date
                     />
                   </div>
                 </div>
