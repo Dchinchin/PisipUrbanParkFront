@@ -48,7 +48,10 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
 
   useEffect(() => {
     if (user) {
-      setFormData(user);
+      setFormData({
+        ...user,
+        contrasena: user.contrasena || '', // Ensure contrasena is always a string
+      });
     } else {
       setFormData({
         idRol: 0,
@@ -152,7 +155,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
               value={formData.contrasena}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
-              required
+              required={!user}
             />
           </div>
           <div className="mb-4">

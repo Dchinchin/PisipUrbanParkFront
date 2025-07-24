@@ -63,18 +63,22 @@ export default function PersonalPage() {
 
   const handleModalSubmit = async (user: Usuario) => {
     try {
-      if (user.cedula) {
+      if (currentUser) {
         // Update existing user
-        await axios.put(`http://localhost:5170/api/Usuarios/${user.cedula}`, user);
+        const userToUpdate: Partial<Usuario> = { ...user };
+        if (userToUpdate.contrasena === '') {
+          delete userToUpdate.contrasena;
+        }
+        await axios.put(`http://localhost:5170/api/Usuarios/${user.idRol}`, userToUpdate);
       } else {
         // Create new user
         await axios.post('http://localhost:5170/api/Usuarios', user);
       }
-      alert(`Usuario ${user.cedula ? 'actualizado' : 'creado'} exitosamente.`);
+      alert(`Usuario ${currentUser ? 'actualizado' : 'creado'} exitosamente.`);
       setIsModalOpen(false);
       fetchUsers(); // Reload the list
     } catch (err: any) {
-      alert(`Error al ${user.cedula ? 'actualizar' : 'crear'} usuario: ${err.message}`);
+      alert(`Error al ${currentUser ? 'actualizar' : 'crear'} usuario: ${err.message}`);
     }
   };
 
