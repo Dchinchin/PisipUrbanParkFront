@@ -118,7 +118,7 @@ export default function LoginPage() {
               </div>
 
               <Link
-                  href="/recuperar-contrasena"
+                  href="/forgot-password"
                   className="text-sm text-orange-500 hover:text-orange-700 hover:underline"
               >
                 ¿Olvidaste tu contraseña?
@@ -134,18 +134,6 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              ¿No tienes una cuenta?{' '}
-              <Link
-                  href="/registro"
-                  className="font-medium text-orange-500 hover:text-orange-700 hover:underline"
-              >
-                Regístrate
-              </Link>
-            </p>
-          </div>
         </div>
       </div>
   );

@@ -14,6 +14,7 @@ interface MaintenanceModalProps {
     users: Usuario[];
     parqueaderos: Parqueadero[];
     tiposMantenimiento: TipoMantenimiento[];
+    maintenance?: Mantenimiento; // Optional prop for editing
 }
 
 const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
@@ -22,20 +23,10 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                                                onSubmit,
                                                                users,
                                                                parqueaderos,
-                                                               tiposMantenimiento
+                                                               tiposMantenimiento,
+                                                               maintenance
                                                            }) => {
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'unset';
-        }
-
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
-    }, [isOpen]);
-    const [formData, setFormData] = useState<Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>>({
+    const initialFormData = {
         idUsuario: 0,
         idParqueadero: 0,
         idTipoMantenimiento: 0,
@@ -43,7 +34,44 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         fechaFin: '',
         observaciones: '',
         estado: 'Pendiente',
-    });
+    };
+
+    const [formData, setFormData] = useState<Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>>(
+        maintenance ? {
+            idUsuario: maintenance.idUsuario,
+            idParqueadero: maintenance.idParqueadero,
+            idTipoMantenimiento: maintenance.idTipoMantenimiento,
+            fechaInicio: maintenance.fechaInicio.slice(0, 16), // Format for datetime-local
+            fechaFin: maintenance.fechaFin ? maintenance.fechaFin.slice(0, 16) : '',
+            observaciones: maintenance.observaciones,
+            estado: maintenance.estado,
+        } : initialFormData
+    );
+
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+            if (maintenance) {
+                setFormData({
+                    idUsuario: maintenance.idUsuario,
+                    idParqueadero: maintenance.idParqueadero,
+                    idTipoMantenimiento: maintenance.idTipoMantenimiento,
+                    fechaInicio: maintenance.fechaInicio.slice(0, 16),
+                    fechaFin: maintenance.fechaFin ? maintenance.fechaFin.slice(0, 16) : '',
+                    observaciones: maintenance.observaciones,
+                    estado: maintenance.estado,
+                });
+            } else {
+                setFormData(initialFormData);
+            }
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen, maintenance]);
     const [errors, setErrors] = useState({
         fechaInicio: '',
         fechaFin: '',
@@ -101,6 +129,7 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             return; // Prevent form submission if there are errors
         }
 
+        console.log('Submitting maintenance data:', formData);
         onSubmit(formData);
         onClose();
     };
@@ -116,7 +145,7 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             <div className="fixed inset-0 flex justify-center items-center z-51">
                 <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-800">Crear Nuevo Mantenimiento</h2>
+                        <h2 className="text-2xl font-bold text-gray-800">{maintenance ? 'Editar Mantenimiento' : 'Crear Nuevo Mantenimiento'}</h2>
                         <button
                             onClick={onClose}
                             className="text-gray-500 hover:text-gray-700"
@@ -141,7 +170,7 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                             >
                                 <option value="">Seleccione un usuario</option>
                                 {users.map(user => (
-                                    <option key={user.cedula} value={user.idRol}>
+                                    <option key={user.cedula} value={user.idUsuario}>
                                         {user.nombre} {user.apellido}
                                     </option>
                                 ))}
@@ -246,7 +275,6 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                             >
                                 <option value="Pendiente">Pendiente</option>
                                 <option value="Completado">Completado</option>
-                                <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
                         <div className="flex justify-end space-x-4">
@@ -261,7 +289,7 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                 type="submit"
                                 className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-300"
                             >
-                                Crear Mantenimiento
+                                {maintenance ? 'Guardar Cambios' : 'Crear Mantenimiento'}
                             </button>
                         </div>
                     </form>

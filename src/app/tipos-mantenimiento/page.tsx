@@ -139,8 +139,8 @@ export default function TiposMantenimientoPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button onClick={() => handleOpenModal(tipo)} className="text-secondary hover:text-secondary/80">Editar</button>
-                      <button onClick={() => handleDelete(tipo.idTipo)} className="text-red-600 hover:text-red-800 ml-4">Eliminar</button>
+                      <button onClick={() => handleOpenModal(tipo)} className="px-3 py-1 bg-blue-400 text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200">Editar</button>
+                      <button onClick={() => handleDelete(tipo.idTipo)} className="px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200 ml-2">Eliminar</button>
                     </td>
                   </tr>
                 ))}
@@ -150,9 +150,23 @@ export default function TiposMantenimientoPage() {
         </div>
 
         {isModalOpen && currentTipo && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <>
+            <div className="fixed inset-0 bg-black opacity-70 z-50"></div>
+
+            <div className="fixed inset-0 flex justify-center items-center z-51">
             <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">{currentTipo.idTipo ? 'Editar' : 'Crear'} Tipo de Mantenimiento</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">{currentTipo.idTipo ? 'Editar' : 'Crear'} Tipo de Mantenimiento</h2>
+                <button
+                    onClick={handleCloseModal}
+                    className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
               <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
                 <div className="mb-4">
                   <label htmlFor="nombre" className="block text-sm font-medium text-gray-700">Nombre</label>
@@ -198,6 +212,7 @@ export default function TiposMantenimientoPage() {
               </form>
             </div>
           </div>
+        </>
         )}
       </div>
   );

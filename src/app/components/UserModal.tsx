@@ -25,6 +25,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
     };
   }, [isOpen]);
   const [formData, setFormData] = useState<Usuario>({
+    idUsuario: 0,
     idRol: 0,
     nombre: '',
     apellido: '',
@@ -56,6 +57,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
       });
     } else {
       setFormData({
+        idUsuario: 0,
         idRol: 0,
         nombre: '',
         apellido: '',

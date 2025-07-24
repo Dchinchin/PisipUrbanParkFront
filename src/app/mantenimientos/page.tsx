@@ -229,6 +229,7 @@ export default function MantenimientosPage() {
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [selectedDayMantenimientos, setSelectedDayMantenimientos] = useState<Mantenimiento[]>([]);
   const [selectedMantenimientoId, setSelectedMantenimientoId] = useState<number | null>(null);
+  const [currentMaintenance, setCurrentMaintenance] = useState<Mantenimiento | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRoleId, setCurrentUserRoleId] = useState<number | null>(null);
   const router = useRouter();
@@ -254,7 +255,7 @@ export default function MantenimientosPage() {
         let url = '/Mantenimiento?EstaEliminado=false';
 
         if (currentUserRoleId !== 1) {
-          url = `/Mantenimiento?Iusuario=${currentUserId}&EstaEliminado=false`;
+          url = `/Mantenimiento?IdUsuario=${currentUserId}&EstaEliminado=false`;
         }
 
         const response = await api.get(url);
@@ -268,6 +269,12 @@ export default function MantenimientosPage() {
       }
     };
     getMantenimientos();
+
+    const interval = setInterval(() => {
+      getMantenimientos();
+    }, 3000); // Refresh every 3 seconds
+
+    return () => clearInterval(interval);
   }, [currentUserId, currentUserRoleId]);
 
   // Obtener usuarios
@@ -330,14 +337,42 @@ export default function MantenimientosPage() {
   }, []);
 
   // Crear nuevo mantenimiento
-  const handleAddMaintenance = async (newMaintenance: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>) => {
+  const handleAddMaintenance = async (maintenanceData: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>) => {
+    console.log('Maintenance data received:', maintenanceData);
     try {
-      const response = await api.post('/Mantenimiento', newMaintenance);
-      setMantenimientos(prev => [...prev, response.data]);
+      if (currentMaintenance) {
+        // Update existing maintenance
+        const response = await api.put(`/Mantenimiento/${currentMaintenance.idMantenimiento}`, maintenanceData);
+        setMantenimientos(prev => prev.map(m => m.idMantenimiento === currentMaintenance.idMantenimiento ? response.data : m));
+      } else {
+        // Create new maintenance
+        const response = await api.post('/Mantenimiento', maintenanceData);
+        setMantenimientos(prev => [...prev, response.data]);
+      }
       setIsModalOpen(false);
+      setCurrentMaintenance(undefined); // Clear current maintenance after submission
     } catch (err) {
-      console.error('Error al crear mantenimiento:', err);
-      alert('Error al crear el mantenimiento. Por favor intente nuevamente.');
+      console.error('Error al guardar mantenimiento:', err);
+      alert('Error al guardar el mantenimiento. Por favor intente nuevamente.');
+    }
+  };
+
+  const handleEditMaintenance = (maintenance: Mantenimiento) => {
+    setCurrentMaintenance(maintenance);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteMaintenance = async (idMantenimiento: number) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este mantenimiento?')) {
+      return;
+    }
+    try {
+      await api.delete(`/Mantenimiento/${idMantenimiento}`);
+      setMantenimientos(prev => prev.filter(m => m.idMantenimiento !== idMantenimiento));
+      alert('Mantenimiento eliminado exitosamente.');
+    } catch (err) {
+      console.error('Error al eliminar mantenimiento:', err);
+      alert('Error al eliminar el mantenimiento. Por favor intente nuevamente.');
     }
   };
 
@@ -356,10 +391,11 @@ export default function MantenimientosPage() {
   const handleAddBitacora = async (idMantenimiento: number, newBitacora: Omit<Bitacora, 'idBitacora' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idMantenimiento'>, imageFile: File | null) => {
     try {
       const formData = new FormData();
-      formData.append('idMantenimiento', idMantenimiento.toString());
-      formData.append('descripcion', newBitacora.descripcion);
+      formData.append('IdMantenimiento', idMantenimiento.toString());
+      formData.append('Descripcion', newBitacora.descripcion);
+      formData.append('FechaHora', new Date().toISOString());
       if (imageFile) {
-        formData.append('imagen', imageFile);
+        formData.append('ImagenFile', imageFile);
       }
 
       await api.post('/Bitacora', formData, {
@@ -368,11 +404,19 @@ export default function MantenimientosPage() {
         }
       });
 
-      await api.put(`/Mantenimiento/estado/${idMantenimiento}`, { estado: 'Completado' });
+      const mantenimientoToUpdate = mantenimientos.find(m => m.idMantenimiento === idMantenimiento);
+      if (!mantenimientoToUpdate) {
+        throw new Error('No se encontró el mantenimiento para actualizar.');
+      }
 
-      const response = await api.get<Mantenimiento[]>(`/Mantenimiento${currentUserRoleId !== 1 ? `/usuario/${currentUserId}` : ''}`);
+
+      await api.put(`/Mantenimiento/${idMantenimiento}`, { estado: 'Completado' });
+
+
+      const response = await api.get<Mantenimiento[]>(`/Mantenimiento?EstaEliminado=false${currentUserRoleId !== 1 ? `&Iusuario=${currentUserId}` : ''}`);
       setMantenimientos(response.data);
       setIsBitacoraModalOpen(false);
+
     } catch (err) {
       console.error('Error al adjuntar bitácora o actualizar mantenimiento:', err);
       alert('Error al adjuntar la bitácora o actualizar el mantenimiento. Por favor intente nuevamente.');
@@ -517,13 +561,13 @@ export default function MantenimientosPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
               {filteredMantenimientos.length > 0 ? (
-                  filteredMantenimientos.map(m => (
+                  filteredMantenimientos.sort((a, b) => b.idMantenimiento - a.idMantenimiento).map(m => (
                       <tr key={m.idMantenimiento} className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium text-gray-900">
                           #{m.idMantenimiento}
                         </td>
                         <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
-                          {users.find(u => u.idRol === m.idUsuario)?.nombre || 'N/A'}
+                          {users.find(u => u.idUsuario === m.idUsuario)?.nombre || 'N/A'}
                         </td>
                         <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm text-gray-500">
                           {parqueaderos.find(p => p.idParqueadero === m.idParqueadero)?.nombre || 'N/A'}
@@ -561,20 +605,32 @@ export default function MantenimientosPage() {
                         </td>
                         <td className="px-4 py-2 md:px-6 md:py-4 lg:px-8 lg:py-5 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
-                            <button
-                                className="px-3 py-1 bg-secondary text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200"
-                            >
-                              Editar
-                            </button>
-                            <button
-                                className="px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition-colors duration-200"
-                                onClick={() => {
-                                  setSelectedMantenimientoId(m.idMantenimiento);
-                                  setIsBitacoraModalOpen(true);
-                                }}
-                            >
-                              Bitácora
-                            </button>
+                            {currentUserRoleId === 1 ? (
+                                <>
+                                  <button
+                                      onClick={() => handleEditMaintenance(m)}
+                                      className="cursor-pointer px-3 py-1 bg-blue-400 text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                      onClick={() => handleDeleteMaintenance(m.idMantenimiento)}
+                                      className="cursor-pointer px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </>
+                            ) : (
+                                <button
+                                    className="px-3 py-1 bg-green-500 text-white text-xs rounded-md hover:bg-green-600 transition-colors duration-200"
+                                    onClick={() => {
+                                      setSelectedMantenimientoId(m.idMantenimiento);
+                                      setIsBitacoraModalOpen(true);
+                                    }}
+                                >
+                                  Bitácora
+                                </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -593,11 +649,15 @@ export default function MantenimientosPage() {
 
         <MaintenanceModal
             isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
+            onClose={() => {
+              setIsModalOpen(false);
+              setCurrentMaintenance(undefined); // Clear current maintenance on close
+            }}
             onSubmit={handleAddMaintenance}
             users={users}
             parqueaderos={parqueaderos}
             tiposMantenimiento={tiposMantenimiento}
+            maintenance={currentMaintenance}
         />
 
         {selectedMantenimientoId && (

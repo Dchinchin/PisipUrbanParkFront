@@ -99,7 +99,7 @@ export default function PersonalPage() {
       } else {
         // Create new user
         console.log('User object being sent to API:', user);
-        await axios.post('/Usuarios', user);
+        await axios.post('http://localhost:5170/api/Usuarios', user);
       }
       alert(`Usuario ${currentUser ? 'actualizado' : 'creado'} exitosamente.`);
       setIsModalOpen(false);
@@ -180,14 +180,14 @@ export default function PersonalPage() {
                     <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => handleEdit(user)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                        className="bg-blue-400 px-3 py-1 bg-secondary text-white text-xs rounded-md hover:bg-secondary/80 transition-colors duration-200 mr-2"
                         disabled={currentUserRoleId !== 1}
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => handleDelete(user.idRol)}
-                        className="text-red-600 hover:text-red-900"
+                        className="px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
                         disabled={currentUserRoleId !== 1}
                       >
                         Eliminar
