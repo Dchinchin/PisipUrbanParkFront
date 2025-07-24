@@ -44,6 +44,19 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         observaciones: '',
         estado: 'Pendiente',
     });
+    const [errors, setErrors] = useState({
+        fechaInicio: '',
+        fechaFin: '',
+    });
+
+    const getLocalDatetimeString = (date: Date) => {
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const {name, value} = e.target;
@@ -51,10 +64,43 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             ...prev,
             [name]: name.startsWith('id') ? parseInt(value) : value,
         }));
+        setErrors(prev => ({ ...prev, [name]: '' })); // Clear error when input changes
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        const newErrors = { fechaInicio: '', fechaFin: '' };
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        const startDate = new Date(formData.fechaInicio);
+        const endDate = new Date(formData.fechaFin);
+
+        // Validate fechaInicio
+        if (startDate < now) {
+            newErrors.fechaInicio = 'La fecha de inicio no puede ser menor a la actual.';
+        }
+
+        // Validate fechaFin
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+        oneYearFromNow.setHours(23, 59, 59, 999); // End of the day for one year from now
+
+        if (endDate > oneYearFromNow) {
+            newErrors.fechaFin = 'La fecha de fin no puede ser mayor a 1 año de la fecha actual.';
+        }
+
+        if (startDate > endDate) {
+            newErrors.fechaFin = 'La fecha de fin no puede ser menor a la fecha de inicio.';
+        }
+
+        setErrors(newErrors);
+
+        if (newErrors.fechaInicio || newErrors.fechaFin) {
+            return; // Prevent form submission if there are errors
+        }
+
         onSubmit(formData);
         onClose();
     };
@@ -148,9 +194,11 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                 name="fechaInicio"
                                 value={formData.fechaInicio}
                                 onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none ${errors.fechaInicio ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500 focus:border-orange-500'}`}
                                 required
+                                min={getLocalDatetimeString(new Date())}
                             />
+                            {errors.fechaInicio && <p className="text-red-500 text-xs mt-1">{errors.fechaInicio}</p>}
                         </div>
                         <div className="mb-4">
                             <label htmlFor="fechaFin" className="block text-sm font-medium text-gray-700">Fecha
@@ -161,9 +209,17 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                 name="fechaFin"
                                 value={formData.fechaFin}
                                 onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none ${errors.fechaFin ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-orange-500 focus:border-orange-500'}`}
                                 required
+                                min={formData.fechaInicio}
+                                max={(() => {
+                                    const oneYearFromNow = new Date();
+                                    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+                                    return oneYearFromNow.toISOString().slice(0, 16);
+                                })()}
+                                disabled={!formData.fechaInicio}
                             />
+                            {errors.fechaFin && <p className="text-red-500 text-xs mt-1">{errors.fechaFin}</p>}
                         </div>
                         <div className="mb-4">
                             <label htmlFor="observaciones"

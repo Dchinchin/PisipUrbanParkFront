@@ -3,12 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Usuario } from '../interfaces/Usuario';
+import { Rol } from '../interfaces/Rol';
 import UserModal from '../components/UserModal';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 
 export default function PersonalPage() {
   const [users, setUsers] = useState<Usuario[]>([]);
+  const [roles, setRoles] = useState<Rol[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,7 +26,18 @@ export default function PersonalPage() {
     }
     setCurrentUserRoleId(parseInt(userRoleId));
     fetchUsers();
+    fetchRoles();
   }, [router]);
+
+  const fetchRoles = async () => {
+    try {
+      const response = await axios.get<Rol[]>('http://localhost:5170/api/Roles');
+      setRoles(response.data);
+    } catch (err: any) {
+      console.error('Error fetching roles:', err);
+      setError('Error al cargar roles');
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -147,7 +160,7 @@ export default function PersonalPage() {
                       {user.correo}
                     </td>
                     <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.idRol}
+                      {roles.find(role => role.idRol === user.idRol)?.nombreRol || 'N/A'}
                     </td>
                     <td className="px-4 py-2 md:px-6 md:py-4 whitespace-nowrap text-sm font-medium">
                       <button
