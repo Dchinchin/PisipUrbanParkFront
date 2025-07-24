@@ -24,6 +24,17 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                                                                parqueaderos,
                                                                tiposMantenimiento
                                                            }) => {
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen]);
     const [formData, setFormData] = useState<Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>>({
         idUsuario: 0,
         idParqueadero: 0,

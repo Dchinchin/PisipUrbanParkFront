@@ -13,6 +13,17 @@ interface UserModalProps {
 }
 
 const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }) => {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
   const [formData, setFormData] = useState<Usuario>({
     idRol: 0,
     nombre: '',
@@ -133,7 +144,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSubmit, user }
             />
           </div>
           <div className="mb-4">
-            <label htmlFor="contrasena" className="block text-sm font-medium text-gray-700">Contraseña</label>
+            <label className="block text-sm font-medium text-gray-700">Contraseña</label>
             <input
               type="password"
               id="contrasena"

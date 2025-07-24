@@ -12,13 +12,17 @@ import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 
 // Componente Calendar
+import DayMantenimientosModal from '../components/DayMantenimientosModal';
+
+// Componente Calendar
 interface CalendarProps {
   mantenimientos: Mantenimiento[];
   selectedMonth: number;
   selectedYear: number;
+  onDayClick: (mantenimientosForDay: Mantenimiento[]) => void;
 }
 
-const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, selectedYear }) => {
+const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, selectedYear, onDayClick }) => {
   const daysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
 
@@ -29,12 +33,18 @@ const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, sele
   const emptyCells = Array.from({ length: startDay }, (_, i) => i);
 
   const getMantenimientosForDay = (day: number) => {
-    const date = new Date(selectedYear, selectedMonth, day);
+    const currentDayDate = new Date(selectedYear, selectedMonth, day);
+    currentDayDate.setHours(0, 0, 0, 0); // Normalize to start of the day
+
     return mantenimientos.filter(mantenimiento => {
-      const maintenanceDate = new Date(mantenimiento.fechaInicio);
-      return maintenanceDate.getFullYear() === selectedYear &&
-          maintenanceDate.getMonth() === selectedMonth &&
-          maintenanceDate.getDate() === day;
+      const startDate = new Date(mantenimiento.fechaInicio);
+      startDate.setHours(0, 0, 0, 0); // Normalize to start of the day
+
+      const endDate = mantenimiento.fechaFin ? new Date(mantenimiento.fechaFin) : null;
+      if (endDate) endDate.setHours(0, 0, 0, 0); // Normalize to start of the day
+
+      // Check if the current day is within the maintenance period
+      return currentDayDate >= startDate && (endDate === null || currentDayDate <= endDate);
     });
   };
 
@@ -68,7 +78,8 @@ const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, sele
           return (
               <div
                   key={day}
-                  className={`border border-gray-200 p-1 h-16 md:h-24 flex flex-col ${isToday ? 'bg-secondary/10' : ''}`}
+                  className={`border border-gray-200 p-1 h-16 md:h-24 flex flex-col cursor-pointer ${isToday ? 'bg-secondary/10' : ''}`}
+                  onClick={() => onDayClick(dayMantenimientos)}
               >
             <span className={`font-bold text-xs md:text-sm ${isToday ? 'text-secondary' : 'text-gray-700'}`}>
               {day}
@@ -80,7 +91,7 @@ const Calendar: React.FC<CalendarProps> = ({ mantenimientos, selectedMonth, sele
                           className={`text-xs rounded px-1 py-0.5 mb-0.5 truncate ${getStatusColor(m.estado)}`}
                           title={m.observaciones}
                       >
-                        {m.observaciones}
+                        No. {m.idMantenimiento} - {m.observaciones}
                       </div>
                   ))}
                 </div>
@@ -208,6 +219,8 @@ export default function MantenimientosPage() {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBitacoraModalOpen, setIsBitacoraModalOpen] = useState(false);
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
+  const [selectedDayMantenimientos, setSelectedDayMantenimientos] = useState<Mantenimiento[]>([]);
   const [selectedMantenimientoId, setSelectedMantenimientoId] = useState<number | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRoleId, setCurrentUserRoleId] = useState<number | null>(null);
@@ -239,10 +252,10 @@ export default function MantenimientosPage() {
       if (!currentUserId) return;
 
       try {
-        let url = '/Mantenimiento';
+        let url = '/Mantenimiento?EstaEliminado=false';
 
         if (currentUserRoleId !== 1) {
-          url = `/Mantenimiento/usuario/${currentUserId}`;
+          url = `/Mantenimiento?Iusuario=${currentUserId}&EstaEliminado=false`;
         }
 
         const response = await api.get(url);
@@ -256,7 +269,7 @@ export default function MantenimientosPage() {
       }
     };
     getMantenimientos();
-  }, [currentUserId, currentUserRoleId]);
+  }, [currentUserId, currentUserRoleId, api]);
 
   // Obtener usuarios
   useEffect(() => {
@@ -277,7 +290,7 @@ export default function MantenimientosPage() {
       }
     };
     getUsers();
-  }, [currentUserRoleId]);
+  }, [currentUserRoleId, api]);
 
   // Obtener Parqueaderos
   useEffect(() => {
@@ -294,7 +307,7 @@ export default function MantenimientosPage() {
       }
     };
     getParqueaderos();
-  }, []);
+  }, [api]);
 
   // Obtener Tipos de Mantenimiento
   useEffect(() => {
@@ -311,7 +324,7 @@ export default function MantenimientosPage() {
       }
     };
     getTiposMantenimiento();
-  }, []);
+  }, [api]);
 
   // Crear nuevo mantenimiento
   const handleAddMaintenance = async (newMaintenance: Omit<Mantenimiento, 'idMantenimiento' | 'bitacoras' | 'fechaCreacion' | 'fechaModificacion' | 'estaEliminado' | 'idInforme'>) => {
@@ -456,6 +469,10 @@ export default function MantenimientosPage() {
                   mantenimientos={filteredMantenimientos}
                   selectedMonth={filters.month}
                   selectedYear={new Date().getFullYear()}
+                  onDayClick={(mantenimientosForDay) => {
+                    setSelectedDayMantenimientos(mantenimientosForDay);
+                    setIsDayModalOpen(true);
+                  }}
               />
           )}
         </div>
@@ -588,6 +605,15 @@ export default function MantenimientosPage() {
                 onSubmit={handleAddBitacora}
             />
         )}
+
+        <DayMantenimientosModal
+            isOpen={isDayModalOpen}
+            onClose={() => setIsDayModalOpen(false)}
+            mantenimientos={selectedDayMantenimientos}
+            users={users}
+            parqueaderos={parqueaderos}
+            tiposMantenimiento={tiposMantenimiento}
+        />
       </div>
   );
 }

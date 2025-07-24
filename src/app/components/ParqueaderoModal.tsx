@@ -11,6 +11,17 @@ interface ParqueaderoModalProps {
 }
 
 const ParqueaderoModal: React.FC<ParqueaderoModalProps> = ({isOpen, onClose, onSubmit, parqueadero}) => {
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen]);
     const [formData, setFormData] = useState<Parqueadero>({
         idParqueadero: 0,
         nombre: '',
